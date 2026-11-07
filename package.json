@@ -1,0 +1,22 @@
+{
+  "name": "farol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Radar da reforma tributária para escritórios contábeis — Hack Brasil 2026",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "fixtures": "node scripts/gerar-xmls.ts",
+    "pretest": "node scripts/gerar-xmls.ts",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "dev": "node --watch src/server/servidor.ts",
+    "start": "node src/server/servidor.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}
