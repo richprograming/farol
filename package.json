@@ -12,11 +12,13 @@
     "apps/*"
   ],
   "scripts": {
+    "convex": "npm run dev:convex -w @farol/web",
+    "dev": "npm run dev -w @farol/web",
+    "semear": "npm run semear -w @farol/web --",
+    "build": "npm run build -w @farol/web",
     "fixtures": "npm run fixtures -w @farol/core",
     "test": "npm test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit",
-    "dev": "node --watch src/server/servidor.ts",
-    "start": "node src/server/servidor.ts"
+    "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

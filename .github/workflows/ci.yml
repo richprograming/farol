@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -17,5 +17,9 @@ jobs:
       - run: npm ci
       - name: Checagem de tipos
         run: npm run typecheck
-      - name: Testes
+      - name: Testes (core + funções do Convex)
         run: npm test
+      - name: Build do Next.js
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'

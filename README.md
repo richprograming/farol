@@ -4,58 +4,71 @@
 
 Projeto do Hack Brasil 2026.
 
-> **Protótipo.** Os dados em `fixtures/` são sintéticos. A tabela de cClassTrib em `src/core/tabela-exemplo.ts` é um exemplo (códigos `EX…`), não a oficial. As alíquotas a partir de 2027 em `src/core/parametros.ts` são estimativas. Nada aqui é orientação tributária.
+> **Protótipo.** Os dados em `packages/core/fixtures/` são sintéticos. A tabela de cClassTrib em `packages/core/src/tabela-exemplo.ts` é um exemplo (códigos `EX…`), não a oficial. As alíquotas a partir de 2027 em `packages/core/src/parametros.ts` são estimativas. Nada aqui é orientação tributária.
 
 ## Rodar
 
-Requer Node 22.18 ou mais recente (roda TypeScript direto, sem build). Não há dependências de runtime.
+Requer Node 22.18 ou mais recente.
 
 ```bash
-npm run fixtures   # gera XMLs sintéticos de 4 clientes em fixtures/
-npm start          # http://localhost:3000
-npm test           # 13 testes (node:test)
-npm install && npm run typecheck   # opcional: checagem de tipos
+npm install
+npm run convex     # terminal 1: back-end Convex (na 1ª vez, escolha rodar localmente sem conta)
+npm run semear     # carteira de demonstração: 4 clientes sintéticos + 2 mudanças fictícias
+npm run dev        # terminal 2: http://localhost:3000
 ```
 
-Variáveis opcionais:
+`npm run semear -- --limpar` apaga a demonstração e começa de novo.
+
+Checagens (as mesmas do CI):
+
+```bash
+npm run typecheck  # core + Next.js + funções do Convex
+npm test           # 14 testes do core (node:test) + 8 das funções do Convex (convex-test)
+npm run build      # build do Next.js
+```
+
+Sem conta no Convex, o `convex dev` roda um back-end local (dados em `apps/web/.convex/`). Em ambiente não interativo, use `CONVEX_AGENT_MODE=anonymous npm run convex`.
+
+Variáveis de ambiente das funções do Convex (`npx convex env set NOME valor`, em `apps/web`):
 
 | Variável | Efeito |
 | --- | --- |
-| `PORT` | Porta do servidor (padrão 3000) |
-| `FAROL_DEMO=0` | Começa com a carteira vazia |
-| `FAROL_ESCRITORIO` | Nome do escritório que assina os avisos |
-| `RESEND_API_KEY`, `FAROL_REMETENTE` | Envia os avisos de verdade pelo Resend; sem elas, o envio é simulado |
-| `FIRECRAWL_API_KEY` | Usada pelo Agente Vigia (`src/integracoes/firecrawl.ts`) |
+| `RESEND_API_KEY`, `FAROL_REMETENTE` | Envia os avisos de verdade pelo Resend; sem elas, o envio é simulado e fica registrado como tal |
+| `FIRECRAWL_API_KEY` | Usada pelo Agente Vigia (`packages/core/src/integracoes/firecrawl.ts`; ainda não agendado) |
 
 ## Fluxo da demo
 
 1. **Carteira:** clientes ordenados pela variação mensal estimada em 2027. Clique num cliente para ver a projeção 2026–2033, o efeito do split payment e cada produto com seu tratamento e base legal.
-2. **Revisão:** produtos cujo NCM admite mais de um tratamento aparecem como "Revisar". A conta usa o tratamento mais conservador até o contador confirmar.
-3. **Adicionar cliente:** suba XMLs de NF-e/NFC-e. O cliente é identificado pelo CNPJ que emite as vendas; CPFs de consumidores são mascarados na leitura.
-4. **Radar:** mudanças normativas (na demo, duas fictícias). Confirme a leitura e o Farol mostra os clientes afetados, a variação em reais e o rascunho do aviso. **Aprovar e enviar** manda pelo Resend.
+2. **Revisão:** produtos cujo NCM admite mais de um tratamento aparecem como "Revisar". A conta usa o tratamento mais conservador até o contador confirmar; ao confirmar, a carteira se recalcula e a tela se atualiza sozinha.
+3. **Adicionar cliente:** suba XMLs de NF-e/NFC-e. O cliente é o CNPJ que aparece em mais notas (emitente das vendas ou destinatário das compras). CPFs de consumidores são mascarados na leitura, o XML não é guardado (só os itens) e notas repetidas são ignoradas pela chave.
+4. **Radar:** mudanças normativas (na demo, duas fictícias). Confirme a leitura e o Farol mostra os clientes afetados, a variação em reais e o rascunho do aviso. **Aprovar e enviar** grava a aprovação e manda pelo Resend. **Incorporar à tabela do escritório** cria uma nova versão da tabela (ex.: `exemplo-0.1+exemplo-fraldas`), que passa a aparecer em cada cálculo.
 
 ## Arquitetura
 
 ```
-src/core/            regras e contas, sem IA, sem dependências
-  xml.ts             parser XML mínimo
-  nfe.ts             leitura de NF-e/NFC-e + máscara de CPF
-  classificar.ts     cClassTrib: revisão do contador > nota > tabela > fila de revisão; hook SugestorIA
-  analise.ts         projeção 2026–2033, split payment, ranking da carteira
-  mudancas.ts        mudança normativa → clientes afetados (Agente Impacto)
-  aviso.ts           rascunho do aviso ao cliente (Comunicador)
-  parametros.ts      alíquotas e calendário da transição (ESTIMATIVAS marcadas)
-  tabela-exemplo.ts  tabela de classificação de EXEMPLO
-src/integracoes/
-  firecrawl.ts       Agente Vigia: change tracking da API v2 + interface ExtratorMudanca
-  resend.ts          envio de avisos aprovados
-src/server/          servidor node:http de demonstração, estado em memória
-public/              interface em JavaScript puro
-scripts/gerar-xmls.ts  gerador de XMLs sintéticos
-test/                testes
+packages/core/          @farol/core: regras e contas, sem IA, sem dependências (TypeScript puro, roda no Node)
+  src/xml.ts            parser XML mínimo
+  src/nfe.ts            leitura de NF-e/NFC-e + máscara de CPF
+  src/classificar.ts    cClassTrib: revisão do contador > nota > tabela > fila de revisão; hook SugestorIA
+  src/analise.ts        projeção 2026–2033, split payment, ranking da carteira
+  src/mudancas.ts       mudança normativa → clientes afetados (Agente Impacto)
+  src/aviso.ts          rascunho do aviso ao cliente (Comunicador)
+  src/parametros.ts     alíquotas e calendário da transição (ESTIMATIVAS marcadas)
+  src/tabela-exemplo.ts tabela de classificação de EXEMPLO
+  src/integracoes/      firecrawl.ts (Agente Vigia) e resend.ts (envio de avisos aprovados)
+  scripts/gerar-xmls.ts gerador de XMLs sintéticos
+apps/web/               Next.js (App Router) + Convex
+  convex/schema.ts      escritórios, clientes, notas (itens, sem XML), revisões, mudanças, envios,
+                        versões de tabela e de parâmetros; analises e impactos (resultados do motor)
+  convex/escritorio.ts  escritorioAtual(): único ponto que decide o escritório (hoje, o de demo; WorkOS na tarefa 3)
+  convex/motor.ts       recalcula com o core quando notas, revisões, tabela ou mudanças mudam
+  convex/notas.ts       entrada de XMLs
+  convex/carteira.ts    carteira, detalhe e revisão
+  convex/radar.ts       confirmar, incorporar, aprovar e enviar
+  app/                  telas: Carteira (com detalhe do cliente) e Radar
 ```
 
-Princípio: **a IA lê, classifica, vigia e redige; o motor faz as contas; o contador aprova.** Nenhum número exibido sai de um LLM.
+Princípio: **a IA lê, classifica, vigia e redige; o motor faz as contas; o contador aprova.** Nenhum número exibido sai de um LLM: o Convex só executa as funções de `@farol/core` e guarda o resultado com as versões da tabela e dos parâmetros usados.
 
 ### Premissas da projeção
 
@@ -68,10 +81,15 @@ Princípio: **a IA lê, classifica, vigia e redige; o motor faz as contas; o con
 
 ## Próximos passos
 
-- [ ] Trocar `tabela-exemplo.ts` pela tabela oficial de cClassTrib e pelos anexos da LC 214/2025, com versão
+- [x] Repositório público, CI (typecheck, testes, build)
+- [x] Migrar para Next.js + Convex, com o núcleo em `packages/core`
+- [ ] Login com WorkOS AuthKit: usuário vinculado a escritório; trocar `escritorioAtual()` (tarefa 3)
+- [ ] Criar conta no Convex para a demo pública (hoje o back-end roda local, sem conta)
+- [ ] Importador da tabela oficial de cClassTrib, versionado e com fonte (tarefa 4) — aguarda o arquivo oficial do time
 - [ ] Trocar `parametros.ts` pelas alíquotas oficiais quando publicadas
-- [ ] Implementar `SugestorIA` (LLM + RAG nos anexos da LC 214) e medir no conjunto-ouro
-- [ ] Implementar `ExtratorMudanca` (LLM extrai a `Mudanca` do diff do Firecrawl) e definir as URLs exatas das fontes
-- [ ] Migrar estado para Convex (tabelas: escritórios, clientes, notas, revisões, mudanças, envios; tarefa agendada diária do Vigia)
-- [ ] Login com WorkOS; cobrança com AbacatePay
-- [ ] Aceitar ZIP de XMLs e leitura de SPED
+- [ ] `SugestorIA` (LLM + RAG nos anexos da LC 214/2025) e `scripts/avaliar.ts` com o conjunto-ouro (tarefa 5)
+- [ ] `ExtratorMudanca`, tarefa diária no Convex e modo "reprocessar" (tarefa 6) — aguarda as URLs exatas das fontes
+- [ ] Resend de verdade: domínio, marca do escritório, webhook de entrega/abertura, resumo diário (tarefa 7)
+- [ ] Upload de ZIP, relatório de erros por arquivo (tarefa 8)
+- [ ] Cobrança com AbacatePay (tarefa 9); roteiro de demo e README em inglês (tarefa 10)
+- [ ] Recálculo de carteiras grandes: hoje cada cliente é recalculado inteiro numa action; com dezenas de milhares de notas por cliente, guardar agregados por produto e mês
