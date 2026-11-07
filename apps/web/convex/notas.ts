@@ -8,6 +8,7 @@ import { ConvexError, v } from 'convex/values';
 import { lerNota, NotaInvalidaError, type NotaFiscal } from '@farol/core';
 
 import { internal } from './_generated/api';
+import type { Id } from './_generated/dataModel';
 import { action, internalMutation } from './_generated/server';
 import { agendarCliente } from './motor';
 import { vNota, vRegime } from './schema';
@@ -17,6 +18,7 @@ export const LIMITE_LOTE_BYTES = 6 * 1024 * 1024;
 
 export interface ResultadoImportacao {
   cnpj: string | null;
+  clienteId: Id<'clientes'> | null;
   lidas: number;
   novas: number;
   duplicadas: number;
@@ -25,11 +27,21 @@ export interface ResultadoImportacao {
 
 const somenteDigitos = (s: string) => s.replace(/\D/g, '');
 
-/** O cliente é o CNPJ que mais emite notas de venda no lote. */
+/**
+ * O cliente é o CNPJ que aparece em mais notas do lote: como emitente das vendas ou como
+ * destinatário das compras. (Contar só emitentes elegeria o fornecedor quando o lote tem
+ * mais compras que vendas.) Empate = não dá para saber: devolve null em vez de chutar.
+ */
 export function identificarCliente(notas: NotaFiscal[]): string | null {
   const contagem = new Map<string, number>();
-  for (const n of notas) if (n.tipo === 'saida') contagem.set(n.emitente.cnpj, (contagem.get(n.emitente.cnpj) ?? 0) + 1);
-  return [...contagem.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const somar = (cnpj: string) => contagem.set(cnpj, (contagem.get(cnpj) ?? 0) + 1);
+  for (const n of notas) {
+    if (n.tipo === 'saida') somar(n.emitente.cnpj);
+    if (n.destinatario && !n.destinatario.pessoaFisica) somar(n.destinatario.documento);
+  }
+  const [primeiro, segundo] = [...contagem.entries()].sort((a, b) => b[1] - a[1]);
+  if (!primeiro || (segundo && segundo[1] === primeiro[1])) return null;
+  return primeiro[0];
 }
 
 export const importar = action({
@@ -56,8 +68,8 @@ export const importar = action({
 
     const cnpj = args.cnpj ? somenteDigitos(args.cnpj) : identificarCliente(lidas.map((l) => l.nota));
     if (!cnpj) {
-      if (lidas.length) erros.push({ arquivo: '(lote)', erro: 'Nenhuma nota de venda para identificar o cliente.' });
-      return { cnpj: null, lidas: 0, novas: 0, duplicadas: 0, erros };
+      if (lidas.length) erros.push({ arquivo: '(lote)', erro: 'Não deu para identificar o cliente por estas notas. Envie também notas de venda dele.' });
+      return { cnpj: null, clienteId: null, lidas: 0, novas: 0, duplicadas: 0, erros };
     }
 
     const doCliente: NotaFiscal[] = [];
@@ -66,7 +78,7 @@ export const importar = action({
       if (envolve) doCliente.push(nota);
       else erros.push({ arquivo, erro: `A nota não tem o CNPJ ${cnpj} como emitente nem como destinatário.` });
     }
-    if (doCliente.length === 0) return { cnpj, lidas: 0, novas: 0, duplicadas: 0, erros };
+    if (doCliente.length === 0) return { cnpj, clienteId: null, lidas: 0, novas: 0, duplicadas: 0, erros };
 
     const venda = doCliente.find((n) => n.emitente.cnpj === cnpj);
     const r = await ctx.runMutation(internal.notas.gravar, {
@@ -76,7 +88,7 @@ export const importar = action({
       email: args.email?.trim() ?? '',
       notas: doCliente,
     });
-    return { cnpj, lidas: doCliente.length, novas: r.novas, duplicadas: r.duplicadas, erros };
+    return { cnpj, clienteId: r.clienteId, lidas: doCliente.length, novas: r.novas, duplicadas: r.duplicadas, erros };
   },
 });
 

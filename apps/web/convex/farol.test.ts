@@ -5,6 +5,8 @@ import { convexTest } from 'convex-test';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { api, internal } from './_generated/api';
+import { identificarCliente } from './notas';
+import { lerNota } from '@farol/core';
 import type { Id } from './_generated/dataModel';
 import schema from './schema';
 
@@ -144,4 +146,12 @@ test('isolamento: dados de outro escritório não aparecem nem podem ser lidos',
   await expect(t.query(api.carteira.cliente, { clienteId: alheio.clienteId as Id<'clientes'> })).rejects.toThrow(/não encontrado/);
   await expect(t.query(api.radar.impactos, { mudancaId: alheio.mudancaId })).rejects.toThrow(/não encontrad/);
   await expect(t.mutation(api.radar.confirmar, { mudancaId: alheio.mudancaId })).rejects.toThrow(/não encontrad/);
+});
+
+test('identificar cliente: lote com mais compras que vendas não elege o fornecedor', () => {
+  const compra = (i: number) => lerNota(xml({ chave: String(i).repeat(44).slice(0, 44), emit: OUTRO, dest: { cnpj: CNPJ }, ncm: '30049069', desc: 'X', valor: 10 }));
+  const venda = (i: number) => lerNota(xml({ chave: String(i).repeat(44).slice(0, 44), emit: CNPJ, ncm: '30049069', desc: 'X', valor: 10 }));
+  expect(identificarCliente([compra(1), compra(2), compra(3), venda(4), venda(5)])).toBe(CNPJ);
+  expect(identificarCliente([compra(1)])).toBeNull(); // empate entre fornecedor e cliente: não chuta
+  expect(identificarCliente([venda(4)])).toBe(CNPJ);
 });
