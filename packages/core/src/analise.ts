@@ -62,6 +62,19 @@ export interface AnaliseCliente {
   versoes: { parametros: string; tabela: string };
 }
 
+/** Tabela e parâmetros usados num cálculo, com as versões que aparecem para o contador. */
+export interface ContextoCalculo {
+  transicao: AnoTransicao[];
+  versoes: { parametros: string; tabela: string };
+  diasFloatPadrao?: number;
+}
+
+export const CONTEXTO_PADRAO: ContextoCalculo = {
+  transicao: TRANSICAO,
+  versoes: { parametros: VERSAO_PARAMETROS, tabela: VERSAO_TABELA },
+  diasFloatPadrao: DIAS_FLOAT_PADRAO,
+};
+
 const centavos = (v: number) => Math.round(v * 100) / 100;
 
 function mesesDistintos(notas: NotaFiscal[]): number {
@@ -124,8 +137,9 @@ export function analisarCliente(
   cliente: Cliente,
   tabela: RegraClassificacao[],
   revisoes: Revisoes = new Map(),
-  transicao: AnoTransicao[] = TRANSICAO,
+  contexto: ContextoCalculo = CONTEXTO_PADRAO,
 ): AnaliseCliente {
+  const { transicao } = contexto;
   const { vendas, compras } = separarNotas(cliente);
   const avisos: string[] = [];
   if (cliente.regime === 'simples' || cliente.regime === 'mei') {
@@ -163,7 +177,7 @@ export function analisarCliente(
   const atual = (Math.max(0, v.icms - c.icms) + v.pisCofins) / meses;
   const projecao = transicao.map((p) => projetarAno(p, v, c, meses, atual));
   const p2027 = projecao.find((p) => p.ano === 2027);
-  const diasFloat = cliente.diasFloat ?? DIAS_FLOAT_PADRAO;
+  const diasFloat = cliente.diasFloat ?? contexto.diasFloatPadrao ?? DIAS_FLOAT_PADRAO;
   // Split payment (cenário): o débito de CBS/IBS das vendas sai no recebimento,
   // em vez de ficar ~diasFloat dias no caixa. Efeito de estoque, não mensal.
   const t2027 = transicao.find((t) => t.ano === 2027);
@@ -190,7 +204,7 @@ export function analisarCliente(
     produtos: lista,
     itensParaRevisar: lista.filter((p) => p.classificacao.precisaRevisao).length,
     avisos,
-    versoes: { parametros: VERSAO_PARAMETROS, tabela: VERSAO_TABELA },
+    versoes: { ...contexto.versoes },
   };
 }
 

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { analisarCliente, rankingCarteira, type Cliente } from '../src/analise.ts';
+import { analisarCliente, CONTEXTO_PADRAO, rankingCarteira, type Cliente } from '../src/analise.ts';
 import { rascunharAviso } from '../src/aviso.ts';
 import { chaveProduto, classificarItem } from '../src/classificar.ts';
 import { impactoDaMudanca, type Mudanca } from '../src/mudancas.ts';
@@ -140,4 +140,18 @@ test('aviso: rascunho não pode ser enviado sem aprovação; aprovado vai em mod
   await assert.rejects(() => enviarAviso(aviso, 'x', ''));
   const r = await enviarAviso({ ...aviso, aprovado: true }, 'x', '');
   assert.equal(r.simulado, true);
+});
+
+test('contexto do cálculo: versões e transição vêm de quem chama', () => {
+  const cliente = carregarCliente('33333333000103');
+  const padrao = analisarCliente(cliente, TABELA_EXEMPLO);
+  assert.deepEqual(padrao.versoes, { parametros: CONTEXTO_PADRAO.versoes.parametros, tabela: CONTEXTO_PADRAO.versoes.tabela });
+  const so2027 = CONTEXTO_PADRAO.transicao.filter((t) => t.ano === 2027);
+  const a = analisarCliente(cliente, TABELA_EXEMPLO, new Map(), { transicao: so2027, versoes: { parametros: 'p-teste', tabela: 't-teste' } });
+  assert.deepEqual(a.versoes, { parametros: 'p-teste', tabela: 't-teste' });
+  assert.deepEqual(a.projecao.map((p) => p.ano), [2027]);
+  assert.equal(a.exposicao2027, padrao.exposicao2027, 'mesma conta com os mesmos parâmetros');
+  const [afetado] = impactoDaMudanca([carregarCliente('11111111000101')], TABELA_EXEMPLO, MUDANCA, new Map(),
+    { transicao: CONTEXTO_PADRAO.transicao, versoes: { parametros: 'p-teste', tabela: 't-teste' } });
+  assert.equal(afetado.analiseDepois.versoes.tabela, `t-teste+${MUDANCA.id}`);
 });

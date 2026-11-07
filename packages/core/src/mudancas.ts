@@ -4,7 +4,7 @@
 // das páginas oficiais via Firecrawl. Aqui ela é aplicada à tabela e a carteira
 // é recalculada com a tabela antes e depois, só por conta (sem IA).
 
-import { analisarCliente, type AnaliseCliente, type Cliente } from './analise.ts';
+import { analisarCliente, CONTEXTO_PADRAO, type AnaliseCliente, type Cliente, type ContextoCalculo } from './analise.ts';
 import type { Revisoes } from './classificar.ts';
 import type { RegraClassificacao, Tratamento } from './tabela-exemplo.ts';
 
@@ -51,13 +51,15 @@ export function impactoDaMudanca(
   tabela: RegraClassificacao[],
   m: Mudanca,
   revisoes: Revisoes = new Map(),
+  contexto: ContextoCalculo = CONTEXTO_PADRAO,
 ): ClienteAfetado[] {
   if (!m.confirmada) throw new Error('A mudança precisa ser confirmada pelo contador antes de gerar impacto.');
   const nova = aplicarMudanca(tabela, m);
+  const contextoDepois: ContextoCalculo = { ...contexto, versoes: { ...contexto.versoes, tabela: `${contexto.versoes.tabela}+${m.id}` } };
   const afetados: ClienteAfetado[] = [];
   for (const cliente of carteira) {
-    const antes = analisarCliente(cliente, tabela, revisoes);
-    const depois = analisarCliente(cliente, nova, revisoes);
+    const antes = analisarCliente(cliente, tabela, revisoes, contexto);
+    const depois = analisarCliente(cliente, nova, revisoes, contextoDepois);
     const produtosAfetados = depois.produtos
       .map((p) => {
         const a = antes.produtos.find((x) => x.chave === p.chave)!;
