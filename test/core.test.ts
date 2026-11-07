@@ -137,7 +137,7 @@ test('aviso: rascunho não pode ser enviado sem aprovação; aprovado vai em mod
   const aviso = rascunharAviso('Contabilidade Exemplo', afetado, MUDANCA, 'cliente@exemplo.com');
   assert.match(aviso.texto, /reduz/);
   assert.ok(aviso.texto.includes(MUDANCA.fonte));
-  await assert.rejects(() => enviarAviso(aviso, 'x', undefined));
-  const r = await enviarAviso({ ...aviso, aprovado: true }, 'x', undefined);
+  await assert.rejects(() => enviarAviso(aviso, 'x', ''));
+  const r = await enviarAviso({ ...aviso, aprovado: true }, 'x', '');
   assert.equal(r.simulado, true);
 });
