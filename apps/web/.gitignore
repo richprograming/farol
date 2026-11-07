@@ -1,0 +1,4 @@
+.env.local
+.convex/
+.next/
+next-env.d.ts
