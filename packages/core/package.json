@@ -1,0 +1,21 @@
+{
+  "name": "@farol/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Núcleo determinístico do Farol: leitura de NF-e, classificação, projeção, impacto e avisos",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./integracoes/firecrawl": "./src/integracoes/firecrawl.ts",
+    "./integracoes/resend": "./src/integracoes/resend.ts"
+  },
+  "scripts": {
+    "fixtures": "node scripts/gerar-xmls.ts",
+    "pretest": "node scripts/gerar-xmls.ts",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  }
+}

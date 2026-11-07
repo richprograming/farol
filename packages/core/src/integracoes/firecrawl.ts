@@ -5,7 +5,7 @@
 // Se mudou, o diff vai para um `ExtratorMudanca` (LLM) que devolve uma `Mudanca`
 // no formato fixo, com `confirmada: false` até o contador conferir.
 
-import type { Mudanca } from '../core/mudancas.ts';
+import type { Mudanca } from '../mudancas.ts';
 
 export interface FonteOficial {
   id: string;

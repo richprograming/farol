@@ -9,16 +9,17 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { extname, join } from 'node:path';
 
-import { analisarCliente, rankingCarteira, type Cliente } from '../core/analise.ts';
-import { rascunharAviso } from '../core/aviso.ts';
-import { aplicarMudanca, impactoDaMudanca, type Mudanca } from '../core/mudancas.ts';
-import { lerNota, NotaInvalidaError, type NotaFiscal } from '../core/nfe.ts';
-import { TRANSICAO, VERSAO_PARAMETROS } from '../core/parametros.ts';
-import { TABELA_EXEMPLO, VERSAO_TABELA, type RegraClassificacao } from '../core/tabela-exemplo.ts';
-import { enviarAviso } from '../integracoes/resend.ts';
+import { analisarCliente, rankingCarteira, type Cliente } from '../../packages/core/src/analise.ts';
+import { rascunharAviso } from '../../packages/core/src/aviso.ts';
+import { aplicarMudanca, impactoDaMudanca, type Mudanca } from '../../packages/core/src/mudancas.ts';
+import { lerNota, NotaInvalidaError, type NotaFiscal } from '../../packages/core/src/nfe.ts';
+import { TRANSICAO, VERSAO_PARAMETROS } from '../../packages/core/src/parametros.ts';
+import { TABELA_EXEMPLO, VERSAO_TABELA, type RegraClassificacao } from '../../packages/core/src/tabela-exemplo.ts';
+import { enviarAviso } from '../../packages/core/src/integracoes/resend.ts';
 import { MUDANCAS_EXEMPLO } from './mudancas-exemplo.ts';
 
 const RAIZ = join(import.meta.dirname, '..', '..');
+const FIXTURES = join(RAIZ, 'packages', 'core', 'fixtures');
 const PUBLICO = join(RAIZ, 'public');
 const PORTA = Number(process.env.PORT ?? 3000);
 const ESCRITORIO = process.env.FAROL_ESCRITORIO ?? 'Contabilidade Exemplo';
@@ -50,7 +51,7 @@ function adicionarNotas(notas: NotaFiscal[], email?: string, nome?: string): Cli
 }
 
 function carregarDemo() {
-  const fix = join(RAIZ, 'fixtures');
+  const fix = FIXTURES;
   if (!existsSync(fix)) {
     console.log('Sem fixtures: rode `npm run fixtures` para a carteira de demonstração.');
     return;

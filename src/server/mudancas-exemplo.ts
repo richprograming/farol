@@ -1,7 +1,7 @@
 // Mudanças FICTÍCIAS para a demo. Não correspondem a normas reais.
 // Na versão final, a lista vem do Agente Vigia (Firecrawl + extração por LLM).
 
-import type { Mudanca } from '../core/mudancas.ts';
+import type { Mudanca } from '../../packages/core/src/mudancas.ts';
 
 export const MUDANCAS_EXEMPLO: Mudanca[] = [
   {

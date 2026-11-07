@@ -3,13 +3,13 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { analisarCliente, rankingCarteira, type Cliente } from '../src/core/analise.ts';
-import { rascunharAviso } from '../src/core/aviso.ts';
-import { chaveProduto, classificarItem } from '../src/core/classificar.ts';
-import { impactoDaMudanca, type Mudanca } from '../src/core/mudancas.ts';
-import { lerNota, mascararCpf, NotaInvalidaError, type ItemNota } from '../src/core/nfe.ts';
-import { TABELA_EXEMPLO } from '../src/core/tabela-exemplo.ts';
-import { parseXml, XmlError } from '../src/core/xml.ts';
+import { analisarCliente, rankingCarteira, type Cliente } from '../src/analise.ts';
+import { rascunharAviso } from '../src/aviso.ts';
+import { chaveProduto, classificarItem } from '../src/classificar.ts';
+import { impactoDaMudanca, type Mudanca } from '../src/mudancas.ts';
+import { lerNota, mascararCpf, NotaInvalidaError, type ItemNota } from '../src/nfe.ts';
+import { TABELA_EXEMPLO } from '../src/tabela-exemplo.ts';
+import { parseXml, XmlError } from '../src/xml.ts';
 import { enviarAviso } from '../src/integracoes/resend.ts';
 
 const FIX = join(import.meta.dirname, '..', 'fixtures');

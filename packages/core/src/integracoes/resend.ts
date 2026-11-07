@@ -1,7 +1,7 @@
 // Envio de avisos aprovados via Resend (https://resend.com/docs/api-reference/emails/send-email).
 // Sem RESEND_API_KEY, roda em modo simulação: não envia nada e devolve um id local.
 
-import type { Aviso } from '../core/aviso.ts';
+import type { Aviso } from '../aviso.ts';
 
 export interface ResultadoEnvio {
   id: string;

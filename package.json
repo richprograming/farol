@@ -7,11 +7,13 @@
   "engines": {
     "node": ">=22.18"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "fixtures": "node scripts/gerar-xmls.ts",
-    "pretest": "node scripts/gerar-xmls.ts",
-    "test": "node --test \"test/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit",
+    "fixtures": "npm run fixtures -w @farol/core",
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc --noEmit",
     "dev": "node --watch src/server/servidor.ts",
     "start": "node src/server/servidor.ts"
   },
