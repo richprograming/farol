@@ -28,7 +28,7 @@ a { color: var(--acento); }
 .abas { display: flex; gap: 4px; }
 .abas button { border: 0; background: none; padding: 8px 12px; border-radius: 8px; font: inherit; color: var(--tinta-2); cursor: pointer; }
 .abas button[aria-selected="true"] { background: var(--acento-claro); color: var(--acento); font-weight: 600; }
-.escritorio { margin-left: auto; color: var(--tinta-2); font-size: 14px; }
+.escritorio { margin-left: auto; color: var(--tinta-2); font-size: 14px; display: flex; align-items: center; gap: 12px; }
 .faixa-aviso { background: var(--alerta-claro); color: var(--alerta); font-size: 13px; padding: 6px 24px; border-bottom: 1px solid #f0dcc3; }
 
 main { max-width: 1120px; margin: 0 auto; padding: 24px; }
@@ -96,3 +96,5 @@ main { max-width: 1120px; margin: 0 auto; padding: 24px; }
 .topo a.aba[aria-current="page"] { background: var(--acento-claro); color: var(--acento); font-weight: 600; }
 .calculando { color: var(--tinta-2); font-size: 13px; font-style: italic; }
 .erro { color: var(--ruim); font-size: 13.5px; }
+.botao.pequeno { padding: 4px 10px; font-size: 13px; }
+.cabecalho-secao .acoes { margin-top: 0; }

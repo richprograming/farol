@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { api } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
-import { brl, REGIME, sinal, STATUS } from './formato';
+import { brl, REGIME, sinal, STATUS, mensagemDeErro } from './formato';
 
 type Produto = Doc<'analises'>['produtos'][number];
 
@@ -93,7 +93,7 @@ function LinhaProduto({ p }: { p: Produto }) {
               try {
                 await revisar({ chave: p.chave, cClassTrib: escolha });
               } catch (e) {
-                setErro((e as Error).message);
+                setErro(mensagemDeErro(e));
                 setSalvando(false);
               }
             }}>{salvando ? 'Recalculando…' : 'Confirmar'}</button>

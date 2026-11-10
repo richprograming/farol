@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
-import { Topo } from './_componentes/Topo';
+import { Entrada } from './_componentes/Entrada';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -15,8 +15,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <html lang="pt-BR">
       <body>
         <Providers>
-          <Topo />
-          <main>{children}</main>
+          <Entrada>{children}</Entrada>
         </Providers>
       </body>
     </html>

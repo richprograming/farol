@@ -3,6 +3,7 @@
 import { useAction } from 'convex/react';
 import { useState, type FormEvent } from 'react';
 
+import { mensagemDeErro } from './formato';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 
@@ -50,7 +51,7 @@ export function AdicionarCliente({ aoFechar, aoImportar }: { aoFechar: () => voi
       setStatus(`${partes.join(', ')}.`);
       if (clienteId) aoImportar(clienteId);
     } catch (err) {
-      setStatus((err as Error).message);
+      setStatus(mensagemDeErro(err));
     } finally {
       setEnviando(false);
     }

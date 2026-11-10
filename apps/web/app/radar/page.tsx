@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { api } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
-import { data, sinal } from '../_componentes/formato';
+import { data, sinal, mensagemDeErro } from '../_componentes/formato';
 
 export default function Radar() {
   const mudancas = useQuery(api.radar.mudancas);
@@ -113,7 +113,7 @@ function Afetado({ a }: { a: Impacto }) {
           try {
             await aprovar({ mudancaId: a.mudancaId, clienteId: a.clienteId, para, assunto, texto });
           } catch (x) {
-            setErro((x as Error).message);
+            setErro(mensagemDeErro(x));
           } finally {
             setEnviando(false);
           }

@@ -4,26 +4,37 @@
 
 Projeto do Hack Brasil 2026.
 
-> **Protótipo.** Os dados em `packages/core/fixtures/` são sintéticos. A tabela de cClassTrib em `packages/core/src/tabela-exemplo.ts` é um exemplo (códigos `EX…`), não a oficial. As alíquotas a partir de 2027 em `packages/core/src/parametros.ts` são estimativas. Nada aqui é orientação tributária.
+> **Protótipo.** Os dados de demonstração (`packages/core/src/sinteticos.ts`) são sintéticos. A tabela de cClassTrib em `packages/core/src/tabela-exemplo.ts` é um exemplo (códigos `EX…`), não a oficial. As alíquotas a partir de 2027 em `packages/core/src/parametros.ts` são estimativas. Nada aqui é orientação tributária.
 
 ## Rodar
 
 Requer Node 22.18 ou mais recente.
 
-```bash
-npm install
-npm run convex     # terminal 1: back-end Convex (na 1ª vez, escolha rodar localmente sem conta)
-npm run semear     # carteira de demonstração: 4 clientes sintéticos + 2 mudanças fictícias
-npm run dev        # terminal 2: http://localhost:3000
-```
+1. **WorkOS (login).** No painel do WorkOS, em *Redirects*, cadastre `http://localhost:3000/callback` como Redirect URI e `http://localhost:3000` como Sign-out URI. Depois crie `apps/web/.env.local` com:
 
-`npm run semear -- --limpar` apaga a demonstração e começa de novo.
+   ```sh
+   WORKOS_CLIENT_ID=client_...
+   WORKOS_API_KEY=sk_test_...
+   WORKOS_COOKIE_PASSWORD=...   # 32+ caracteres: node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+   NEXT_PUBLIC_WORKOS_REDIRECT_URI=http://localhost:3000/callback
+   ```
+
+2. **Subir:**
+
+   ```bash
+   npm install
+   npm run convex     # terminal 1: back-end Convex (na 1ª vez, escolha rodar localmente sem conta; grava NEXT_PUBLIC_CONVEX_URL no .env.local)
+   cd apps/web && npx convex env set WORKOS_CLIENT_ID client_...   # uma vez: o Convex valida o token do WorkOS
+   npm run dev        # terminal 2: http://localhost:3000
+   ```
+
+3. **Entrar.** O 1º login pede o nome do escritório e cria o escritório com você como dono. Com a carteira vazia, **Carregar carteira de demonstração** traz 4 clientes sintéticos e 2 mudanças fictícias; **Recomeçar demonstração** apaga tudo (só se a carteira for 100% sintética).
 
 Checagens (as mesmas do CI):
 
 ```bash
 npm run typecheck  # core + Next.js + funções do Convex
-npm test           # 14 testes do core (node:test) + 8 das funções do Convex (convex-test)
+npm test           # 15 testes do core (node:test) + 10 das funções do Convex (convex-test)
 npm run build      # build do Next.js
 ```
 
@@ -33,6 +44,7 @@ Variáveis de ambiente das funções do Convex (`npx convex env set NOME valor`,
 
 | Variável | Efeito |
 | --- | --- |
+| `WORKOS_CLIENT_ID` | Obrigatória: o Convex só aceita tokens emitidos para este client (`convex/auth.config.ts`) |
 | `RESEND_API_KEY`, `FAROL_REMETENTE` | Envia os avisos de verdade pelo Resend; sem elas, o envio é simulado e fica registrado como tal |
 | `FIRECRAWL_API_KEY` | Usada pelo Agente Vigia (`packages/core/src/integracoes/firecrawl.ts`; ainda não agendado) |
 
@@ -56,15 +68,19 @@ packages/core/          @farol/core: regras e contas, sem IA, sem dependências 
   src/parametros.ts     alíquotas e calendário da transição (ESTIMATIVAS marcadas)
   src/tabela-exemplo.ts tabela de classificação de EXEMPLO
   src/integracoes/      firecrawl.ts (Agente Vigia) e resend.ts (envio de avisos aprovados)
-  scripts/gerar-xmls.ts gerador de XMLs sintéticos
+  src/sinteticos.ts     gerador de NF-e sintéticas (usado pelas fixtures dos testes e pela demo)
 apps/web/               Next.js (App Router) + Convex
-  convex/schema.ts      escritórios, clientes, notas (itens, sem XML), revisões, mudanças, envios,
+  convex/schema.ts      escritórios, usuários, membros, clientes, notas (itens, sem XML), revisões, mudanças, envios,
                         versões de tabela e de parâmetros; analises e impactos (resultados do motor)
-  convex/escritorio.ts  escritorioAtual(): único ponto que decide o escritório (hoje, o de demo; WorkOS na tarefa 3)
+  convex/auth.config.ts aceita os tokens do WorkOS AuthKit
+  convex/escritorio.ts  escritorioAtual(): único ponto que decide o escritório (usuário do token → vínculo em `membros`)
+  convex/conta.ts       sessão e 1º acesso (cria o escritório; o usuário vira dono)
+  convex/demo.ts        carteira de demonstração sintética dentro do escritório do usuário
   convex/motor.ts       recalcula com o core quando notas, revisões, tabela ou mudanças mudam
   convex/notas.ts       entrada de XMLs
   convex/carteira.ts    carteira, detalhe e revisão
   convex/radar.ts       confirmar, incorporar, aprovar e enviar
+  proxy.ts              toda página exige login (AuthKit); /callback recebe o retorno
   app/                  telas: Carteira (com detalhe do cliente) e Radar
 ```
 
@@ -83,7 +99,8 @@ Princípio: **a IA lê, classifica, vigia e redige; o motor faz as contas; o con
 
 - [x] Repositório público, CI (typecheck, testes, build)
 - [x] Migrar para Next.js + Convex, com o núcleo em `packages/core`
-- [ ] Login com WorkOS AuthKit: usuário vinculado a escritório; trocar `escritorioAtual()` (tarefa 3)
+- [x] Login com WorkOS AuthKit; cada usuário vinculado a um escritório; todas as consultas filtradas pelo escritório do token
+- [ ] Convidar outros membros para o escritório (a tabela `membros` já comporta)
 - [ ] Criar conta no Convex para a demo pública (hoje o back-end roda local, sem conta)
 - [ ] Importador da tabela oficial de cClassTrib, versionado e com fonte (tarefa 4) — aguarda o arquivo oficial do time
 - [ ] Trocar `parametros.ts` pelas alíquotas oficiais quando publicadas

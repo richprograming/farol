@@ -5,8 +5,9 @@ import { usePathname } from 'next/navigation';
 import { useQuery } from 'convex/react';
 
 import { api } from '../../convex/_generated/api';
+import { sair } from '../acoes';
 
-export function Topo() {
+export function Topo({ email }: { email: string }) {
   const caminho = usePathname();
   const resumo = useQuery(api.carteira.resumo);
   const mudancas = useQuery(api.radar.mudancas);
@@ -34,7 +35,11 @@ export function Topo() {
             Radar {pendentes > 0 && <span className="pilula">{pendentes}</span>}
           </Link>
         </nav>
-        <div className="escritorio">{resumo?.escritorio}</div>
+        <div className="escritorio">
+          <span>{resumo?.escritorio}</span>
+          <span className="citacao">{email}</span>
+          <form action={sair}><button className="botao secundario pequeno" type="submit">Sair</button></form>
+        </div>
       </header>
       <div className="faixa-aviso">{avisos.join(' · ')}</div>
     </>

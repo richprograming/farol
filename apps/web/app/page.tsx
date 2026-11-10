@@ -1,13 +1,13 @@
 'use client';
 
-import { useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { useState } from 'react';
 
 import { api } from '../convex/_generated/api';
 import type { Id } from '../convex/_generated/dataModel';
 import { AdicionarCliente } from './_componentes/AdicionarCliente';
 import { DetalheCliente } from './_componentes/DetalheCliente';
-import { brl, formatarCnpj, REGIME, sinal } from './_componentes/formato';
+import { brl, formatarCnpj, mensagemDeErro, REGIME, sinal } from './_componentes/formato';
 
 export default function Carteira() {
   const resumo = useQuery(api.carteira.resumo);
@@ -28,7 +28,10 @@ export default function Carteira() {
           <h1>Carteira</h1>
           <p className="sub">Clientes ordenados por quanto a estimativa de tributos muda em 2027, quando a CBS passa a ser cobrada.</p>
         </div>
-        <button className="botao" onClick={() => setEnvioAberto(true)}>Adicionar cliente</button>
+        <div className="acoes">
+          {resumo.algumSintetico && <RecomecarDemo />}
+          <button className="botao" onClick={() => setEnvioAberto(true)}>Adicionar cliente</button>
+        </div>
       </div>
 
       {envioAberto && (
@@ -48,7 +51,10 @@ export default function Carteira() {
       <div className="cartao sem-padding">
         <table className="tabela">
           {c.length + resumo.pendentes.length === 0 ? (
-            <tbody><tr><td className="vazio">Nenhum cliente ainda. Use &quot;Adicionar cliente&quot; para subir os XMLs.</td></tr></tbody>
+            <tbody><tr><td className="vazio">
+              Nenhum cliente ainda. Use &quot;Adicionar cliente&quot; para subir os XMLs, ou experimente com dados sintéticos.
+              <div className="acoes"><CarregarDemo /></div>
+            </td></tr></tbody>
           ) : (
             <>
               <thead>
@@ -91,4 +97,41 @@ export default function Carteira() {
 
 function Numero({ rotulo, valor }: { rotulo: string; valor: string | number }) {
   return <div className="numero"><div className="rotulo">{rotulo}</div><div className="valor">{valor}</div></div>;
+}
+
+function CarregarDemo() {
+  const carregar = useAction(api.demo.carregar);
+  const [estado, setEstado] = useState('');
+  return (
+    <>
+      <button className="botao secundario" disabled={estado === 'carregando'} onClick={async () => {
+        setEstado('carregando');
+        try {
+          await carregar({});
+          setEstado('');
+        } catch (e) {
+          setEstado(mensagemDeErro(e));
+        }
+      }}>{estado === 'carregando' ? 'Carregando…' : 'Carregar carteira de demonstração'}</button>
+      {estado && estado !== 'carregando' && <span className="erro">{estado}</span>}
+    </>
+  );
+}
+
+function RecomecarDemo() {
+  const recomecar = useMutation(api.demo.recomecar);
+  const [erro, setErro] = useState('');
+  return (
+    <>
+      {erro && <span className="erro">{erro}</span>}
+      <button className="botao secundario" title="Apaga a carteira sintética e as mudanças de exemplo deste escritório" onClick={async () => {
+        if (!window.confirm('Apagar a carteira de demonstração e as mudanças de exemplo?')) return;
+        try {
+          await recomecar({});
+        } catch (e) {
+          setErro(mensagemDeErro(e));
+        }
+      }}>Recomeçar demonstração</button>
+    </>
+  );
 }
