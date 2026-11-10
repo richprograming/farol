@@ -9,12 +9,13 @@
  */
 
 import type * as carteira from "../carteira.js";
+import type * as conta from "../conta.js";
+import type * as demo from "../demo.js";
 import type * as escritorio from "../escritorio.js";
 import type * as exemplos from "../exemplos.js";
 import type * as motor from "../motor.js";
 import type * as notas from "../notas.js";
 import type * as radar from "../radar.js";
-import type * as seed from "../seed.js";
 
 import type {
   ApiFromModules,
@@ -24,12 +25,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   carteira: typeof carteira;
+  conta: typeof conta;
+  demo: typeof demo;
   escritorio: typeof escritorio;
   exemplos: typeof exemplos;
   motor: typeof motor;
   notas: typeof notas;
   radar: typeof radar;
-  seed: typeof seed;
 }>;
 
 /**

@@ -8,12 +8,13 @@
     "dev:convex": "convex dev",
     "build": "next build",
     "start": "next start",
-    "semear": "node scripts/semear.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit && tsc --noEmit -p convex"
   },
   "dependencies": {
     "@farol/core": "*",
+    "@workos-inc/authkit-nextjs": "4.6.3",
+    "@workos-inc/node": "12.2.0",
     "convex": "1.49.0",
     "next": "16.4.5",
     "react": "19.3.1",

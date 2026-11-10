@@ -9,7 +9,7 @@ import { lerNota, NotaInvalidaError, type NotaFiscal } from '@farol/core';
 
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
-import { action, internalMutation } from './_generated/server';
+import { action, internalMutation, type ActionCtx } from './_generated/server';
 import { agendarCliente } from './motor';
 import { vNota, vRegime } from './schema';
 
@@ -53,6 +53,19 @@ export const importar = action({
   },
   handler: async (ctx, args): Promise<ResultadoImportacao> => {
     const escritorioId = await ctx.runQuery(internal.escritorio.atualId, {});
+    return importarLote(ctx, escritorioId, args);
+  },
+});
+
+export interface Lote {
+  xmls: { nome: string; conteudo: string }[];
+  cnpj?: string;
+  email?: string;
+  nome?: string;
+}
+
+/** Lê, filtra e grava um lote de XMLs no escritório dado. Usado pelo upload e pela carteira de demonstração. */
+export async function importarLote(ctx: ActionCtx, escritorioId: Id<'escritorios'>, args: Lote): Promise<ResultadoImportacao> {
     const tamanho = args.xmls.reduce((s, x) => s + x.conteudo.length, 0);
     if (tamanho > LIMITE_LOTE_BYTES) throw new ConvexError('Lote grande demais: envie em partes menores.');
 
@@ -89,8 +102,7 @@ export const importar = action({
       notas: doCliente,
     });
     return { cnpj, clienteId: r.clienteId, lidas: doCliente.length, novas: r.novas, duplicadas: r.duplicadas, erros };
-  },
-});
+}
 
 export const gravar = internalMutation({
   args: {

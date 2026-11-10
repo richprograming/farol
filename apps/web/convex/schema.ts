@@ -117,10 +117,27 @@ export const vImpacto = v.object({
 export default defineSchema({
   escritorios: defineTable({
     nome: v.string(),
-    slug: v.string(),
     tabelaVersaoId: v.id('versoesTabela'),
     parametrosVersaoId: v.id('versoesParametros'),
-  }).index('by_slug', ['slug']),
+    criadoPor: v.id('usuarios'),
+    criadoEm: v.number(),
+  }),
+
+  /** Usuário autenticado pelo WorkOS. Guarda só o necessário para identificar e exibir. */
+  usuarios: defineTable({
+    workosId: v.string(), // `sub` do token
+    email: v.string(),
+    nome: v.optional(v.string()),
+  }).index('by_workos', ['workosId']),
+
+  /** Vínculo usuário ↔ escritório. Hoje cada usuário tem um escritório (o que ele criou no 1º login). */
+  membros: defineTable({
+    usuarioId: v.id('usuarios'),
+    escritorioId: v.id('escritorios'),
+    papel: v.union(v.literal('dono'), v.literal('membro')),
+  })
+    .index('by_usuario', ['usuarioId'])
+    .index('by_escritorio', ['escritorioId']),
 
   /** Versões da tabela de classificação. Sem escritorioId = versão base; com = derivada por mudança aplicada. */
   versoesTabela: defineTable({
@@ -132,7 +149,9 @@ export default defineSchema({
     baseId: v.optional(v.id('versoesTabela')),
     mudancaId: v.optional(v.id('mudancas')),
     criadaEm: v.number(),
-  }).index('by_versao', ['versao']),
+  })
+    .index('by_versao', ['versao'])
+    .index('by_escritorio', ['escritorioId']),
 
   versoesParametros: defineTable({
     versao: v.string(),

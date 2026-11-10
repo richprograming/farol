@@ -1,8 +1,8 @@
 // Escritório da sessão e contexto de cálculo.
 //
-// ÚNICO ponto que decide "de qual escritório é este pedido". Até o login (WorkOS,
-// tarefa 3), devolve o escritório de demonstração; depois, vai ler a identidade do
-// usuário e o vínculo dele com um escritório. Toda função pública passa por aqui.
+// ÚNICO ponto que decide "de qual escritório é este pedido": lê a identidade do
+// usuário (token do WorkOS, validado pelo Convex), acha o usuário e o vínculo dele
+// com um escritório. Toda função pública passa por aqui; sem login, nada é lido.
 
 import { ConvexError, v } from 'convex/values';
 import type { ContextoCalculo, RegraClassificacao } from '@farol/core';
@@ -10,15 +10,29 @@ import type { ContextoCalculo, RegraClassificacao } from '@farol/core';
 import { internalQuery, type QueryCtx } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
 
-export const SLUG_DEMO = 'demo';
+export const SEM_LOGIN = 'Faça login para continuar.';
+export const SEM_ESCRITORIO = 'Crie o seu escritório para continuar.';
 
-export async function escritorioAtual(ctx: QueryCtx): Promise<Doc<'escritorios'>> {
-  const e = await ctx.db.query('escritorios').withIndex('by_slug', (q) => q.eq('slug', SLUG_DEMO)).unique();
-  if (!e) throw new ConvexError('Escritório não encontrado. Rode `npm run semear -w @farol/web` para criar a demonstração.');
-  return e;
+/** Usuário da sessão, ou null se ainda não fez o 1º acesso. Lança se não houver login. */
+export async function usuarioAtual(ctx: QueryCtx): Promise<Doc<'usuarios'> | null> {
+  const identidade = await ctx.auth.getUserIdentity();
+  if (!identidade) throw new ConvexError(SEM_LOGIN);
+  return ctx.db.query('usuarios').withIndex('by_workos', (q) => q.eq('workosId', identidade.subject)).unique();
 }
 
-/** Para actions, que não leem o banco direto. */
+export async function escritorioDoUsuario(ctx: QueryCtx, usuarioId: Id<'usuarios'>): Promise<Doc<'escritorios'> | null> {
+  const vinculo = await ctx.db.query('membros').withIndex('by_usuario', (q) => q.eq('usuarioId', usuarioId)).first();
+  return vinculo ? ctx.db.get(vinculo.escritorioId) : null;
+}
+
+export async function escritorioAtual(ctx: QueryCtx): Promise<Doc<'escritorios'>> {
+  const usuario = await usuarioAtual(ctx);
+  const escritorio = usuario ? await escritorioDoUsuario(ctx, usuario._id) : null;
+  if (!escritorio) throw new ConvexError(SEM_ESCRITORIO);
+  return escritorio;
+}
+
+/** Para actions, que não leem o banco direto. A identidade do chamador é repassada pelo runQuery. */
 export const atualId = internalQuery({
   args: {},
   handler: async (ctx): Promise<Id<'escritorios'>> => (await escritorioAtual(ctx))._id,

@@ -1,13 +1,13 @@
 /// <reference types="vite/client" />
-// Testes das funções do Convex: bloqueios do contador, LGPD, isolamento por escritório e deduplicação.
+// Testes das funções do Convex: login, bloqueios do contador, LGPD, isolamento por escritório e deduplicação.
 
 import { convexTest } from 'convex-test';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { lerNota } from '@farol/core';
 
 import { api, internal } from './_generated/api';
-import { identificarCliente } from './notas';
-import { lerNota } from '@farol/core';
 import type { Id } from './_generated/dataModel';
+import { identificarCliente } from './notas';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.*s');
@@ -33,20 +33,47 @@ const NOTAS = [
   { nome: 'b.xml', conteudo: xml({ chave: '2'.repeat(44), emit: CNPJ, ncm: '30049069', desc: 'DIPIRONA', valor: 300, mes: '2026-10' }) },
 ];
 
+const ANA = { subject: 'user_ana', email: 'ana@contabil.exemplo', name: 'Ana' };
+const BETO = { subject: 'user_beto', email: 'beto@outro.exemplo' };
+
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
+/** Usuário logado com escritório criado, duas notas importadas e as mudanças de exemplo. */
 async function preparar() {
   const t = convexTest(schema, modules);
-  await t.mutation(internal.seed.base, {});
-  const r = await t.action(api.notas.importar, { xmls: NOTAS, email: 'cliente@exemplo.com' });
+  const ana = t.withIdentity(ANA);
+  const escritorioId = await ana.mutation(api.conta.criarEscritorio, { nome: 'Contabilidade da Ana' });
+  const r = await ana.action(api.notas.importar, { xmls: NOTAS, email: 'cliente@exemplo.com' });
+  await t.mutation(internal.demo.criarMudancasExemplo, { escritorioId });
   await t.finishAllScheduledFunctions(vi.runAllTimers);
-  const fraldas = (await t.query(api.radar.mudancas, {})).find((m) => m.ref === 'exemplo-fraldas')!;
-  return { t, r, fraldas };
+  const fraldas = (await ana.query(api.radar.mudancas, {})).find((m) => m.ref === 'exemplo-fraldas')!;
+  return { t, ana, r, fraldas, escritorioId };
 }
 
+test('login: sem identidade nada é lido; o 1º acesso cria o escritório com o usuário como dono', async () => {
+  const t = convexTest(schema, modules);
+  expect(await t.query(api.conta.eu, {})).toEqual({ logado: false });
+  await expect(t.query(api.carteira.resumo, {})).rejects.toThrow(/Faça login/);
+  await expect(t.action(api.notas.importar, { xmls: NOTAS })).rejects.toThrow(/Faça login/);
+  await expect(t.mutation(api.conta.criarEscritorio, { nome: 'X' })).rejects.toThrow(/Faça login/);
+
+  const ana = t.withIdentity(ANA);
+  expect(await ana.query(api.conta.eu, {})).toMatchObject({ logado: true, escritorio: null });
+  await expect(ana.query(api.carteira.resumo, {})).rejects.toThrow(/Crie o seu escritório/);
+  await expect(ana.mutation(api.conta.criarEscritorio, { nome: ' ' })).rejects.toThrow(/nome do escritório/);
+  const id = await ana.mutation(api.conta.criarEscritorio, { nome: '  Contabilidade   da Ana ' });
+  expect(await ana.query(api.conta.eu, {})).toMatchObject({ logado: true, email: ANA.email, escritorio: { _id: id, nome: 'Contabilidade da Ana' } });
+  await expect(ana.mutation(api.conta.criarEscritorio, { nome: 'Outro' })).rejects.toThrow(/já tem um escritório/);
+  const membros = await t.run((ctx) => ctx.db.query('membros').collect());
+  expect(membros).toMatchObject([{ escritorioId: id, papel: 'dono' }]);
+  const resumo = await ana.query(api.carteira.resumo, {});
+  expect(resumo).toMatchObject({ escritorio: 'Contabilidade da Ana', clientes: [], tabela: { versao: 'exemplo-0.1', exemplo: true } });
+  expect(await ana.query(api.radar.mudancas, {})).toEqual([]); // escritório novo não ganha mudança fictícia
+});
+
 test('importar: grava itens normalizados, mascara CPF e calcula a análise', async () => {
-  const { t, r } = await preparar();
+  const { t, ana, r } = await preparar();
   expect(r).toMatchObject({ cnpj: CNPJ, lidas: 2, novas: 2, duplicadas: 0, erros: [] });
   const notas = await t.run((ctx) => ctx.db.query('notas').collect());
   expect(notas).toHaveLength(2);
@@ -54,16 +81,16 @@ test('importar: grava itens normalizados, mascara CPF e calcula a análise', asy
   expect(comCpf.destinatario!.documento).toBe('***.456.789-**');
   expect(JSON.stringify(notas)).not.toContain('12345678901');
   expect(JSON.stringify(notas)).not.toContain('<infNFe');
-  const resumo = await t.query(api.carteira.resumo, {});
+  const resumo = await ana.query(api.carteira.resumo, {});
   expect(resumo.pendentes).toHaveLength(0);
   expect(resumo.clientes[0]).toMatchObject({ cnpj: CNPJ, meses: 2, sintetico: true });
   expect(resumo.clientes[0].versoes).toEqual({ tabela: 'exemplo-0.1', parametros: '2026-11-07-exemplo' });
 });
 
 test('importar: notas repetidas são ignoradas pela chave e notas de outro CNPJ viram erro por arquivo', async () => {
-  const { t } = await preparar();
+  const { t, ana } = await preparar();
   const estranha = { nome: 'c.xml', conteudo: xml({ chave: '3'.repeat(44), emit: OUTRO, ncm: '22021000', desc: 'REFRI', valor: 10 }) };
-  const r = await t.action(api.notas.importar, { xmls: [...NOTAS, estranha, { nome: 'd.xml', conteudo: '<html/>' }], cnpj: CNPJ });
+  const r = await ana.action(api.notas.importar, { xmls: [...NOTAS, estranha, { nome: 'd.xml', conteudo: '<html/>' }], cnpj: CNPJ });
   expect(r.novas).toBe(0);
   expect(r.duplicadas).toBe(2);
   expect(r.erros.map((e) => e.arquivo).sort()).toEqual(['c.xml', 'd.xml']);
@@ -71,81 +98,114 @@ test('importar: notas repetidas são ignoradas pela chave e notas de outro CNPJ 
 });
 
 test('radar: sem confirmação não há impacto nem envio', async () => {
-  const { t, fraldas } = await preparar();
-  expect(await t.query(api.radar.impactos, { mudancaId: fraldas._id })).toEqual([]);
-  const clienteId = (await t.query(api.carteira.resumo, {})).clientes[0].clienteId;
-  await expect(t.mutation(api.radar.aprovarEnvio, { mudancaId: fraldas._id, clienteId, para: 'a@b.com', assunto: 'x', texto: 'y' }))
+  const { ana, fraldas } = await preparar();
+  expect(await ana.query(api.radar.impactos, { mudancaId: fraldas._id })).toEqual([]);
+  const clienteId = (await ana.query(api.carteira.resumo, {})).clientes[0].clienteId;
+  await expect(ana.mutation(api.radar.aprovarEnvio, { mudancaId: fraldas._id, clienteId, para: 'a@b.com', assunto: 'x', texto: 'y' }))
     .rejects.toThrow(/Confirme/);
-  await expect(t.mutation(api.radar.aplicar, { mudancaId: fraldas._id })).rejects.toThrow(/Confirme/);
+  await expect(ana.mutation(api.radar.aplicar, { mudancaId: fraldas._id })).rejects.toThrow(/Confirme/);
 });
 
 test('radar: confirmar calcula o impacto; aprovar grava e envia (simulado sem chave); não envia duas vezes', async () => {
-  const { t, fraldas } = await preparar();
-  await t.mutation(api.radar.confirmar, { mudancaId: fraldas._id });
+  const { t, ana, fraldas } = await preparar();
+  await ana.mutation(api.radar.confirmar, { mudancaId: fraldas._id });
   await t.finishAllScheduledFunctions(vi.runAllTimers);
-  const [impacto, ...resto] = await t.query(api.radar.impactos, { mudancaId: fraldas._id });
+  const [impacto, ...resto] = await ana.query(api.radar.impactos, { mudancaId: fraldas._id });
   expect(resto).toHaveLength(0);
   expect(impacto.variacaoMensal).toBeLessThan(0);
   expect(impacto.versoes.tabela).toBe('exemplo-0.1+exemplo-fraldas');
   expect(impacto.aviso.texto).toContain(fraldas.fonte);
+  expect(impacto.aviso.texto).toContain('Contabilidade da Ana'); // assinado pelo escritório
   expect(impacto.envio).toBeNull();
 
   const pedido = { mudancaId: fraldas._id, clienteId: impacto.clienteId, para: 'cliente@exemplo.com', assunto: impacto.aviso.assunto, texto: impacto.aviso.texto };
-  await t.mutation(api.radar.aprovarEnvio, pedido);
+  await ana.mutation(api.radar.aprovarEnvio, pedido);
   await t.finishAllScheduledFunctions(vi.runAllTimers);
-  const [depois] = await t.query(api.radar.impactos, { mudancaId: fraldas._id });
+  const [depois] = await ana.query(api.radar.impactos, { mudancaId: fraldas._id });
   expect(depois.envio).toMatchObject({ status: 'simulado', para: 'cliente@exemplo.com' });
-  await expect(t.mutation(api.radar.aprovarEnvio, pedido)).rejects.toThrow(/já foi aprovado/);
-  await expect(t.mutation(api.radar.aprovarEnvio, { ...pedido, para: 'invalido' })).rejects.toThrow();
+  await expect(ana.mutation(api.radar.aprovarEnvio, pedido)).rejects.toThrow(/já foi aprovado/);
+  await expect(ana.mutation(api.radar.aprovarEnvio, { ...pedido, para: 'invalido' })).rejects.toThrow();
 });
 
 test('aplicar: cria versão derivada da tabela só para o escritório e recalcula', async () => {
-  const { t, fraldas } = await preparar();
-  const antes = (await t.query(api.carteira.resumo, {})).clientes[0].exposicao2027;
-  await t.mutation(api.radar.confirmar, { mudancaId: fraldas._id });
-  await t.mutation(api.radar.aplicar, { mudancaId: fraldas._id });
+  const { t, ana, fraldas } = await preparar();
+  const antes = (await ana.query(api.carteira.resumo, {})).clientes[0].exposicao2027;
+  await ana.mutation(api.radar.confirmar, { mudancaId: fraldas._id });
+  await ana.mutation(api.radar.aplicar, { mudancaId: fraldas._id });
   await t.finishAllScheduledFunctions(vi.runAllTimers);
-  const resumo = await t.query(api.carteira.resumo, {});
+  const resumo = await ana.query(api.carteira.resumo, {});
   expect(resumo.tabela.versao).toBe('exemplo-0.1+exemplo-fraldas');
   expect(resumo.clientes[0].versoes.tabela).toBe('exemplo-0.1+exemplo-fraldas');
   expect(resumo.clientes[0].exposicao2027).toBeLessThan(antes);
-  expect((await t.query(api.radar.mudancas, {})).map((m) => m.ref)).not.toContain('exemplo-fraldas');
+  expect((await ana.query(api.radar.mudancas, {})).map((m) => m.ref)).not.toContain('exemplo-fraldas');
   const base = await t.run((ctx) => ctx.db.query('versoesTabela').withIndex('by_versao', (q) => q.eq('versao', 'exemplo-0.1')).unique());
   expect(base!.escritorioId).toBeUndefined();
 });
 
 test('revisão: só aceita código da tabela vigente e muda a conta', async () => {
-  const { t } = await preparar();
-  const c = (await t.query(api.carteira.resumo, {})).clientes[0];
-  const det = await t.query(api.carteira.cliente, { clienteId: c.clienteId });
+  const { t, ana } = await preparar();
+  const c = (await ana.query(api.carteira.resumo, {})).clientes[0];
+  const det = await ana.query(api.carteira.cliente, { clienteId: c.clienteId });
   const dipirona = det.analise!.produtos.find((p) => p.descricao === 'DIPIRONA')!;
   expect(dipirona.classificacao.status).toBe('revisar');
-  await expect(t.mutation(api.carteira.revisar, { chave: dipirona.chave, cClassTrib: '000001' })).rejects.toThrow(/não está na tabela/);
-  await t.mutation(api.carteira.revisar, { chave: dipirona.chave, cClassTrib: 'EX2002' });
+  await expect(ana.mutation(api.carteira.revisar, { chave: dipirona.chave, cClassTrib: '000001' })).rejects.toThrow(/não está na tabela/);
+  await ana.mutation(api.carteira.revisar, { chave: dipirona.chave, cClassTrib: 'EX2002' });
   await t.finishAllScheduledFunctions(vi.runAllTimers);
-  const depois = await t.query(api.carteira.cliente, { clienteId: c.clienteId });
+  const depois = await ana.query(api.carteira.cliente, { clienteId: c.clienteId });
   expect(depois.analise!.produtos.find((p) => p.descricao === 'DIPIRONA')!.classificacao.status).toBe('revisado');
   expect(depois.analise!.exposicao2027).toBeLessThan(c.exposicao2027);
 });
 
-test('isolamento: dados de outro escritório não aparecem nem podem ser lidos', async () => {
-  const { t, r } = await preparar();
-  const alheio = await t.run(async (ctx) => {
-    const e = (await ctx.db.query('escritorios').first())!;
-    const outro = await ctx.db.insert('escritorios', { nome: 'Outro', slug: 'outro', tabelaVersaoId: e.tabelaVersaoId, parametrosVersaoId: e.parametrosVersaoId });
-    const clienteId = await ctx.db.insert('clientes', { escritorioId: outro, cnpj: OUTRO, nome: 'ALHEIO', regime: 'normal', email: '', sintetico: true });
-    const mudancaId = await ctx.db.insert('mudancas', {
-      escritorioId: outro, ref: 'x', titulo: 'ALHEIA', resumo: '', fonte: 'https://exemplo.gov.br', publicadaEm: '2026-11-01',
-      efeito: { tipo: 'altera_reducao', cClassTrib: 'EX2060', novaReducao: 1 }, origem: 'manual', confirmada: true, aplicada: false, criadaEm: 0,
-    });
-    return { clienteId, mudancaId };
+test('isolamento: cada usuário só vê e só mexe no próprio escritório', async () => {
+  const { t, ana, r, fraldas } = await preparar();
+  const beto = t.withIdentity(BETO);
+  await beto.mutation(api.conta.criarEscritorio, { nome: 'Escritório do Beto' });
+  const deBeto = await beto.action(api.notas.importar, {
+    xmls: [{ nome: 'x.xml', conteudo: xml({ chave: '9'.repeat(44), emit: OUTRO, ncm: '22021000', desc: 'REFRI', valor: 10 }) }],
   });
-  const resumo = await t.query(api.carteira.resumo, {});
-  expect(resumo.clientes.map((c) => c.cnpj)).toEqual([r.cnpj]);
-  expect((await t.query(api.radar.mudancas, {})).map((m) => m.titulo)).not.toContain('ALHEIA');
-  await expect(t.query(api.carteira.cliente, { clienteId: alheio.clienteId as Id<'clientes'> })).rejects.toThrow(/não encontrado/);
-  await expect(t.query(api.radar.impactos, { mudancaId: alheio.mudancaId })).rejects.toThrow(/não encontrad/);
-  await expect(t.mutation(api.radar.confirmar, { mudancaId: alheio.mudancaId })).rejects.toThrow(/não encontrad/);
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+  expect((await ana.query(api.carteira.resumo, {})).clientes.map((c) => c.cnpj)).toEqual([r.cnpj]);
+  expect((await beto.query(api.carteira.resumo, {})).clientes.map((c) => c.cnpj)).toEqual([OUTRO]);
+  expect(await beto.query(api.radar.mudancas, {})).toEqual([]);
+
+  const clienteDaAna = (await ana.query(api.carteira.resumo, {})).clientes[0].clienteId;
+  await expect(beto.query(api.carteira.cliente, { clienteId: clienteDaAna })).rejects.toThrow(/não encontrado/);
+  await expect(ana.query(api.carteira.cliente, { clienteId: deBeto.clienteId as Id<'clientes'> })).rejects.toThrow(/não encontrado/);
+  await expect(beto.query(api.radar.impactos, { mudancaId: fraldas._id })).rejects.toThrow(/não encontrad/);
+  await expect(beto.mutation(api.radar.confirmar, { mudancaId: fraldas._id })).rejects.toThrow(/não encontrad/);
+  await expect(beto.mutation(api.radar.aprovarEnvio, { mudancaId: fraldas._id, clienteId: clienteDaAna, para: 'a@b.com', assunto: 'x', texto: 'y' }))
+    .rejects.toThrow(/não encontrad/);
+  // Revisão de um escritório não muda a conta do outro
+  const det = await ana.query(api.carteira.cliente, { clienteId: clienteDaAna });
+  const chave = det.analise!.produtos.find((p) => p.descricao === 'DIPIRONA')!.chave;
+  await beto.mutation(api.carteira.revisar, { chave, cClassTrib: 'EX2002' });
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  const dip = (await ana.query(api.carteira.cliente, { clienteId: clienteDaAna })).analise!.produtos.find((p) => p.descricao === 'DIPIRONA')!;
+  expect(dip.classificacao.status).toBe('revisar');
+});
+
+test('demonstração: carrega a carteira sintética no próprio escritório e recomeça só se for 100% sintética', async () => {
+  const t = convexTest(schema, modules);
+  const ana = t.withIdentity(ANA);
+  await ana.mutation(api.conta.criarEscritorio, { nome: 'Contabilidade da Ana' });
+  const r = await ana.action(api.demo.carregar, {});
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  expect(r.clientes).toBe(4);
+  const resumo = await ana.query(api.carteira.resumo, {});
+  expect(resumo.clientes).toHaveLength(4);
+  expect(resumo.algumSintetico).toBe(true);
+  expect((await ana.query(api.radar.mudancas, {})).map((m) => m.ref).sort()).toEqual(['exemplo-detergentes', 'exemplo-fraldas']);
+  expect((await ana.action(api.demo.carregar, {})).notas).toBe(0); // de novo: nada duplica
+
+  await ana.mutation(api.demo.recomecar, {});
+  expect((await ana.query(api.carteira.resumo, {})).clientes).toHaveLength(0);
+  expect(await ana.query(api.radar.mudancas, {})).toEqual([]);
+
+  // Com um cliente real na carteira, recomeçar é recusado
+  const real = xml({ chave: '7'.repeat(44), emit: CNPJ, ncm: '30049069', desc: 'X', valor: 10 }).replace('(SINTETICO)', 'LTDA');
+  await ana.action(api.notas.importar, { xmls: [{ nome: 'r.xml', conteudo: real }] });
+  await expect(ana.mutation(api.demo.recomecar, {})).rejects.toThrow(/clientes reais/);
 });
 
 test('identificar cliente: lote com mais compras que vendas não elege o fornecedor', () => {

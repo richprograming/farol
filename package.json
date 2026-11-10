@@ -14,7 +14,6 @@
   "scripts": {
     "convex": "npm run dev:convex -w @farol/web",
     "dev": "npm run dev -w @farol/web",
-    "semear": "npm run semear -w @farol/web --",
     "build": "npm run build -w @farol/web",
     "fixtures": "npm run fixtures -w @farol/core",
     "test": "npm test --workspaces --if-present",
