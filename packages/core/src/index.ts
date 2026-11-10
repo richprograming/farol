@@ -7,3 +7,4 @@ export * from './classificar.ts';
 export * from './analise.ts';
 export * from './mudancas.ts';
 export * from './aviso.ts';
+export * from './sinteticos.ts';

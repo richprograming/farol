@@ -8,6 +8,7 @@ import { rascunharAviso } from '../src/aviso.ts';
 import { chaveProduto, classificarItem } from '../src/classificar.ts';
 import { impactoDaMudanca, type Mudanca } from '../src/mudancas.ts';
 import { lerNota, mascararCpf, NotaInvalidaError, type ItemNota } from '../src/nfe.ts';
+import { gerarCarteiraSintetica } from '../src/sinteticos.ts';
 import { TABELA_EXEMPLO } from '../src/tabela-exemplo.ts';
 import { parseXml, XmlError } from '../src/xml.ts';
 import { enviarAviso } from '../src/integracoes/resend.ts';
@@ -154,4 +155,14 @@ test('contexto do cálculo: versões e transição vêm de quem chama', () => {
   const [afetado] = impactoDaMudanca([carregarCliente('11111111000101')], TABELA_EXEMPLO, MUDANCA, new Map(),
     { transicao: CONTEXTO_PADRAO.transicao, versoes: { parametros: 'p-teste', tabela: 't-teste' } });
   assert.equal(afetado.analiseDepois.versoes.tabela, `t-teste+${MUDANCA.id}`);
+});
+
+test('carteira sintética: determinística, marcada como sintética e lida pelo próprio core', () => {
+  const a = gerarCarteiraSintetica();
+  assert.deepEqual(a, gerarCarteiraSintetica());
+  assert.equal(a.length, 4);
+  for (const c of a) {
+    assert.match(c.nome, /\(SINTETICO\)/);
+    for (const x of c.xmls.slice(0, 3)) assert.ok(lerNota(x.conteudo).itens.length > 0);
+  }
 });
