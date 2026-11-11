@@ -5,7 +5,7 @@
 //   - aviso só sai depois do clique de aprovação, que fica gravado em `envios`.
 
 import { ConvexError, v } from 'convex/values';
-import { aplicarMudanca, type Aviso } from '@farol/core';
+import { aplicarMudanca, compactarTabela, expandirTabela, type Aviso } from '@farol/core';
 import { enviarAviso } from '@farol/core/integracoes/resend';
 
 import { internal } from './_generated/api';
@@ -76,7 +76,7 @@ export const aplicar = mutation({
       versao: `${base.versao}+${m.ref}`,
       fonte: `${base.fonte} + mudança "${m.titulo}" (${m.fonte})`,
       exemplo: base.exemplo || m.origem === 'exemplo',
-      regras: aplicarMudanca(base.regras, paraMudanca(m)),
+      tabela: compactarTabela(aplicarMudanca(expandirTabela(base.tabela), paraMudanca(m))),
       escritorioId: escritorio._id,
       baseId: base._id,
       mudancaId: m._id,

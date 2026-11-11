@@ -8,7 +8,7 @@
 // A IA entra só no passo 4, por meio de `SugestorIA`, e sempre devolve a base legal.
 
 import type { ItemNota } from './nfe.ts';
-import { INTEGRAL, type RegraClassificacao, type Tratamento } from './tabela-exemplo.ts';
+import { regraDoNcm, tratamentoConhecido, type TabelaClassificacao, type Tratamento } from './tabela.ts';
 
 export type StatusClassificacao = 'revisado' | 'da_nota' | 'tabela' | 'padrao' | 'revisar';
 
@@ -45,65 +45,57 @@ export function chaveProduto(item: Pick<ItemNota, 'ncm' | 'descricao'>): string 
 
 export type Revisoes = Map<string, string>; // chaveProduto → cClassTrib escolhido
 
-export function regraDoNcm(ncm: string, tabela: RegraClassificacao[]): RegraClassificacao | undefined {
-  let melhor: RegraClassificacao | undefined;
-  for (const r of tabela) {
-    if (ncm.startsWith(r.ncmPrefixo) && (!melhor || r.ncmPrefixo.length > melhor.ncmPrefixo.length)) melhor = r;
-  }
-  return melhor;
-}
-
-function todosTratamentos(tabela: RegraClassificacao[]): Map<string, Tratamento> {
-  const m = new Map<string, Tratamento>([[INTEGRAL.cClassTrib, INTEGRAL]]);
-  for (const r of tabela) for (const t of r.tratamentos) m.set(t.cClassTrib, t);
-  return m;
-}
-
 export function classificarItem(
   item: ItemNota,
-  tabela: RegraClassificacao[],
+  tabela: TabelaClassificacao,
   revisoes: Revisoes = new Map(),
 ): Classificacao {
-  const conhecidos = todosTratamentos(tabela);
   const regra = regraDoNcm(item.ncm, tabela);
-  const candidatos = regra?.tratamentos ?? [INTEGRAL];
+  const candidatos = regra?.tratamentos ?? [tabela.padrao];
 
   const decidido = revisoes.get(chaveProduto(item));
-  if (decidido && conhecidos.has(decidido)) {
-    return { status: 'revisado', tratamento: conhecidos.get(decidido)!, candidatos, precisaRevisao: false,
-      motivo: 'Decisão registrada pelo contador.' };
+  const escolhido = decidido ? tratamentoConhecido(tabela, decidido) : undefined;
+  if (escolhido) {
+    return { status: 'revisado', tratamento: escolhido, candidatos, precisaRevisao: false,
+      motivo: comRessalva('Decisão registrada pelo contador.', escolhido) };
   }
 
-  if (item.cClassTrib) {
-    const t = conhecidos.get(item.cClassTrib);
-    if (t) {
-      const coerente = candidatos.some((c) => c.cClassTrib === t.cClassTrib);
-      return { status: 'da_nota', tratamento: t, candidatos, precisaRevisao: !coerente,
-        motivo: coerente ? 'Código informado na nota, coerente com o NCM.'
-          : 'Código informado na nota não bate com os tratamentos esperados para o NCM.' };
-    }
+  const daNota = item.cClassTrib ? tratamentoConhecido(tabela, item.cClassTrib) : undefined;
+  if (daNota) {
+    const coerente = candidatos.some((c) => c.cClassTrib === daNota.cClassTrib);
+    return { status: 'da_nota', tratamento: daNota, candidatos, precisaRevisao: !coerente || !!daNota.ressalva,
+      motivo: comRessalva(coerente ? 'Código informado na nota, coerente com o NCM.'
+        : 'Código informado na nota não bate com os tratamentos esperados para o NCM.', daNota) };
   }
 
   if (!regra) {
-    return { status: 'padrao', tratamento: INTEGRAL, candidatos, precisaRevisao: false,
+    return { status: 'padrao', tratamento: tabela.padrao, candidatos, precisaRevisao: false,
       motivo: 'NCM sem tratamento diferenciado na tabela: tributação integral.' };
   }
 
   if (candidatos.length === 1) {
-    return { status: 'tabela', tratamento: candidatos[0], candidatos, precisaRevisao: false,
-      motivo: `NCM ${regra.ncmPrefixo}* tem um único tratamento na tabela.` };
+    const [unico] = candidatos;
+    return { status: 'tabela', tratamento: unico, candidatos, precisaRevisao: !!unico.ressalva,
+      motivo: comRessalva(`NCM ${regra.ncmPrefixo}* tem um único tratamento na tabela.`, unico) };
   }
 
+  // Na dúvida, a conta usa o tratamento de menor redução (o primeiro, em caso de empate)
+  // até o contador decidir.
   const conservador = [...candidatos].sort((a, b) => a.reducao - b.reducao)[0];
   return { status: 'revisar', tratamento: conservador, candidatos, precisaRevisao: true,
-    motivo: regra.criterio ?? 'O NCM admite mais de um tratamento.' };
+    // Só a 1ª linha do critério: o resto (itens do anexo) é consultado na tabela quando o contador abre.
+    motivo: regra.criterio?.split('\n')[0] ??'O NCM admite mais de um tratamento.' };
+}
+
+function comRessalva(motivo: string, t: Tratamento): string {
+  return t.ressalva ? `${motivo} Atenção: ${t.ressalva}` : motivo;
 }
 
 /** Pede sugestão à IA para itens em revisão. Não muda o tratamento usado na conta. */
 export async function sugerirComIA(
   item: ItemNota,
   c: Classificacao,
-  tabela: RegraClassificacao[],
+  tabela: TabelaClassificacao,
   sugestor: SugestorIA,
 ): Promise<Classificacao> {
   if (c.status !== 'revisar') return c;

@@ -9,7 +9,7 @@ import { lerNota, NotaInvalidaError, type NotaFiscal } from '@farol/core';
 
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
-import { action, internalMutation, type ActionCtx } from './_generated/server';
+import { action, internalAction, internalMutation, type ActionCtx } from './_generated/server';
 import { agendarCliente } from './motor';
 import { vNota, vRegime } from './schema';
 
@@ -57,11 +57,24 @@ export const importar = action({
   },
 });
 
+/** Mesmo caminho do upload, chamado pelo servidor (demonstração, testes, processamento em segundo plano). */
+export const importarInterno = internalAction({
+  args: {
+    escritorioId: v.id('escritorios'),
+    xmls: v.array(v.object({ nome: v.string(), conteudo: v.string() })),
+    cnpj: v.optional(v.string()),
+    email: v.optional(v.string()),
+    sintetico: v.boolean(),
+  },
+  handler: async (ctx, { escritorioId, ...lote }): Promise<ResultadoImportacao> => importarLote(ctx, escritorioId, lote),
+});
+
 export interface Lote {
   xmls: { nome: string; conteudo: string }[];
   cnpj?: string;
   email?: string;
   nome?: string;
+  sintetico?: boolean; // só a carteira de demonstração
 }
 
 /** Lê, filtra e grava um lote de XMLs no escritório dado. Usado pelo upload e pela carteira de demonstração. */
@@ -99,6 +112,7 @@ export async function importarLote(ctx: ActionCtx, escritorioId: Id<'escritorios
       nome: args.nome?.trim() || venda?.emitente.nome || cnpj,
       regime: venda?.emitente.regime ?? 'desconhecido',
       email: args.email?.trim() ?? '',
+      sintetico: args.sintetico ?? false,
       notas: doCliente,
     });
     return { cnpj, clienteId: r.clienteId, lidas: doCliente.length, novas: r.novas, duplicadas: r.duplicadas, erros };
@@ -111,17 +125,28 @@ export const gravar = internalMutation({
     nome: v.string(),
     regime: vRegime,
     email: v.string(),
+    sintetico: v.boolean(),
     notas: v.array(vNota),
   },
   handler: async (ctx, a) => {
+    // Dados reais nunca são calculados com a tabela de EXEMPLO, nem a demonstração com a oficial.
+    const escritorio = await ctx.db.get(a.escritorioId);
+    const tabela = escritorio && await ctx.db.get(escritorio.tabelaVersaoId);
+    if (!tabela) throw new ConvexError('Tabela do escritório não encontrada.');
+    if (tabela.exemplo && !a.sintetico) {
+      throw new ConvexError('Este escritório está com a carteira de demonstração (tabela de EXEMPLO). Use "Recomeçar demonstração" antes de adicionar clientes reais.');
+    }
+    if (a.sintetico && !tabela.exemplo) throw new ConvexError('A carteira de demonstração só pode ser carregada com a tabela de exemplo.');
     let cliente = await ctx.db.query('clientes')
       .withIndex('by_escritorio_cnpj', (q) => q.eq('escritorioId', a.escritorioId).eq('cnpj', a.cnpj)).unique();
     if (!cliente) {
       const id = await ctx.db.insert('clientes', {
         escritorioId: a.escritorioId, cnpj: a.cnpj, nome: a.nome, regime: a.regime, email: a.email,
-        sintetico: a.nome.includes('(SINTETICO)'),
+        sintetico: a.sintetico,
       });
       cliente = (await ctx.db.get(id))!;
+    } else if (cliente.sintetico !== a.sintetico) {
+      throw new ConvexError(`O CNPJ ${a.cnpj} já está na carteira como cliente ${cliente.sintetico ? 'sintético' : 'real'}.`);
     } else if (a.email && !cliente.email) {
       await ctx.db.patch(cliente._id, { email: a.email });
     }

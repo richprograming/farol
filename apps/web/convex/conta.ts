@@ -4,11 +4,12 @@
 // Convites para outros membros ficam para depois (a tabela `membros` já comporta).
 
 import { ConvexError, v } from 'convex/values';
-import { DIAS_FLOAT_PADRAO, TABELA_EXEMPLO, TRANSICAO, VERSAO_PARAMETROS, VERSAO_TABELA } from '@farol/core';
+import { DIAS_FLOAT_PADRAO, TRANSICAO, VERSAO_PARAMETROS } from '@farol/core';
 
 import type { Id } from './_generated/dataModel';
 import { mutation, query, type MutationCtx } from './_generated/server';
 import { escritorioDoUsuario, SEM_LOGIN } from './escritorio';
+import { versaoBaseTabela } from './tabelas';
 
 /** Estado da sessão para a interface decidir entre login, criação do escritório e o app. Nunca lança. */
 export const eu = query({
@@ -26,14 +27,10 @@ export const eu = query({
   },
 });
 
-/** Versões de partida de todo escritório: tabela de EXEMPLO e parâmetros ESTIMADOS (até haver os oficiais). */
+/** Versões de partida de todo escritório: tabela OFICIAL de cClassTrib e parâmetros ESTIMADOS (até haver os oficiais). */
 export async function versoesBase(ctx: MutationCtx): Promise<{ tabelaId: Id<'versoesTabela'>; parametrosId: Id<'versoesParametros'> }> {
   const agora = Date.now();
-  const tabela = await ctx.db.query('versoesTabela').withIndex('by_versao', (q) => q.eq('versao', VERSAO_TABELA)).first();
-  const tabelaId = tabela?._id ?? await ctx.db.insert('versoesTabela', {
-    versao: VERSAO_TABELA, fonte: 'Tabela de EXEMPLO do Farol (packages/core/src/tabela-exemplo.ts) — não é a oficial',
-    exemplo: true, regras: TABELA_EXEMPLO, criadaEm: agora,
-  });
+  const tabelaId = await versaoBaseTabela(ctx, 'oficial');
   const parametros = await ctx.db.query('versoesParametros').withIndex('by_versao', (q) => q.eq('versao', VERSAO_PARAMETROS)).first();
   const parametrosId = parametros?._id ?? await ctx.db.insert('versoesParametros', {
     versao: VERSAO_PARAMETROS, fonte: 'Estimativas do Farol (packages/core/src/parametros.ts) — alíquotas de 2027 em diante não oficiais',

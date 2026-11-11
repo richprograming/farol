@@ -1,0 +1,190 @@
+[
+ {
+  "Cst": "000",
+  "NomeCst": "Tributação integral",
+  "ClassificacoesTributarias": [
+   {
+    "CodClassTrib": "000001",
+    "NomeClassTrib": "Situações tributadas integralmente pelo IBS e CBS.",
+    "NomeReduzido": "Situações tributadas integralmente pelo IBS e CBS.",
+    "Cst": "000",
+    "PercRedIbs": 0,
+    "PercRedCbs": 0,
+    "IndNfe": true,
+    "IndNfce": true,
+    "DthPublicacao": "2026-06-22T00:00:00",
+    "DthFimVig": null,
+    "TexUrlLegislacao": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm#art4",
+    "Anexos": []
+   },
+   {
+    "CodClassTrib": "000002",
+    "NomeClassTrib": "Exploração de via, observado o art. 11 da Lei Complementar nº 214, de 2025.",
+    "NomeReduzido": "Exploração de via",
+    "Cst": "000",
+    "PercRedIbs": 0,
+    "PercRedCbs": 0,
+    "IndNfe": false,
+    "IndNfce": false,
+    "DthPublicacao": "2026-06-22T00:00:00",
+    "DthFimVig": null,
+    "TexUrlLegislacao": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm#art11",
+    "Anexos": []
+   }
+  ]
+ },
+ {
+  "Cst": "200",
+  "NomeCst": "Alíquota reduzida",
+  "ClassificacoesTributarias": [
+   {
+    "CodClassTrib": "200003",
+    "NomeClassTrib": "Vendas de produtos destinados à alimentação humana relacionados no Anexo I da Lei Complementar nº 214, de 2025, com a especificação das respectivas classificações da NCM/SH, que compõem a Cesta Básica Nacional de Alimentos, criada nos termos do art. 8º da Emenda Constitucional nº 132, de 20 de dezembro de 2023, observado o art. 125 da Lei Complementar nº 214, de 2025.",
+    "NomeReduzido": "Vendas de produtos destinados à alimentação humana (Anexo I)",
+    "Cst": "200",
+    "PercRedIbs": 100,
+    "PercRedCbs": 100,
+    "IndNfe": true,
+    "IndNfce": true,
+    "DthPublicacao": "2026-06-22T00:00:00",
+    "DthFimVig": null,
+    "TexUrlLegislacao": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm#art125",
+    "Anexos": [
+     {
+      "CodNcmNbs": "04011010",
+      "TipoCodigo": "NCM",
+      "TipoPermissao": "PERMITIDO",
+      "DescCondicao": "DESTINADOS À ALIMENTAÇÃO HUMANA",
+      "DescExcecao": null,
+      "DescItemAnexo": "Leite, em conformidade com os requisitos da legislação específica relativos ao consumo direto pela população, classificado nos códigos 0401.10.10, 0401.10.90, 0401.20.10, 0401.20.90, 0401.40.10 e 0401.50.10 da NCM/SH",
+      "DthFimVig": null
+     },
+     {
+      "CodNcmNbs": "19059090",
+      "TipoCodigo": "NCM",
+      "TipoPermissao": "PERMITIDO",
+      "DescCondicao": "DESTINADOS À ALIMENTAÇÃO HUMANA",
+      "DescExcecao": null,
+      "DescItemAnexo": "Pão comumente denominado pão francês, de formato cilíndrico e alongado, com miolo branco creme e macio, e casca dourada e crocante, elaborado a partir da mistura ou pré-mistura de farinha de trigo, fermento biológico, água, sal, açúcar, aditivos alimentares e produtos de fortificação de farinhas, em conformidade com a legislação vigente, classificado no código 1905.90.90 da NCM/SH e a pré-mistura ou massa, para preparação do pão comumente denominado pão francês, dos códigos 1901.20.10 e 1901.20.90 da NCM/SH",
+      "DthFimVig": null
+     },
+     {
+      "CodNcmNbs": "03021900",
+      "TipoCodigo": "NCM",
+      "TipoPermissao": "VEDADO",
+      "DescCondicao": null,
+      "DescExcecao": "Produtos das subposições e dos códigos 0302.1, 0302.3, 0302.51.00, 0302.52.00, 0302.53.00 e 0302.9 da NCM/SH;  produtos das subposições e dos códigos 0303.1, 0303.4, 0303.63.00, 0303.64.00, 0303.65.00 e 0303.9 da NCM/SH; salmonídeos, atuns, bacalhaus, hadoque e saithe classificados nas subposições 0304.4, 0304.5, 0304.7, 0304.8 e 0304.9 da NCM/SH",
+      "DescItemAnexo": "Peixes e carnes de peixes (exceto salmonídeos, atuns, bacalhaus, hadoque, saithe e ovas e outros subprodutos) dos seguintes códigos, subposições e posições da NCM/SH: a) 03.02; exceto os produtos das subposições e dos códigos 0302.1, 0302.3, 0302.51.00, 0302.52.00, 0302.53.00 e 0302.9 da NCM/SH; b) 03.03; exceto os produtos das subposições e dos códigos 0303.1, 0303.4, 0303.63.00, 0303.64.00, 0303.65.00 e 0303.9 da NCM/SH; c) 03.04; exceto os salmonídeos, atuns, bacalhaus, hadoque e saithe classificados nas subposições 0304.4, 0304.5, 0304.7, 0304.8 e 0304.9 da NCM/SH",
+      "DthFimVig": null
+     }
+    ]
+   },
+   {
+    "CodClassTrib": "200013",
+    "NomeClassTrib": "Fornecimento de tampões higiênicos, absorventes higiênicos internos ou externos, descartáveis ou reutilizáveis, calcinhas absorventes e coletores menstruais, observado o art. 147 da Lei Complementar nº 214, de 2025.",
+    "NomeReduzido": "Fornecimento de tampões higiênicos, absorventes higiênicos internos ou externos",
+    "Cst": "200",
+    "PercRedIbs": 100,
+    "PercRedCbs": 100,
+    "IndNfe": true,
+    "IndNfce": true,
+    "DthPublicacao": "2026-06-22T00:00:00",
+    "DthFimVig": null,
+    "TexUrlLegislacao": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm#art147",
+    "Anexos": [
+     {
+      "CodNcmNbs": "96190000",
+      "TipoCodigo": "NCM",
+      "TipoPermissao": "PERMITIDO",
+      "DescCondicao": null,
+      "DescExcecao": null,
+      "DescItemAnexo": "Tampões higiênicos",
+      "DthFimVig": null
+     },
+     {
+      "CodNcmNbs": "96190000",
+      "TipoCodigo": "NCM",
+      "TipoPermissao": "PERMITIDO",
+      "DescCondicao": null,
+      "DescExcecao": null,
+      "DescItemAnexo": "Absorventes higiênicos internos ou externos, descartáveis ou reutilizáveis, e calcinhas absorventes",
+      "DthFimVig": null
+     },
+     {
+      "CodNcmNbs": "96190000",
+      "TipoCodigo": "NCM",
+      "TipoPermissao": "PERMITIDO",
+      "DescCondicao": null,
+      "DescExcecao": null,
+      "DescItemAnexo": "Coletores menstruais",
+      "DthFimVig": null
+     }
+    ]
+   },
+   {
+    "CodClassTrib": "200035",
+    "NomeClassTrib": "Fornecimento dos produtos de higiene pessoal e limpeza relacionados no Anexo VIII da Lei Complementar nº 214, de 2025, com a especificação das respectivas classificações da NCM/SH, observado o art. 136 da Lei Complementar nº 214, de 2025.",
+    "NomeReduzido": "Fornecimento dos produtos de higiene pessoal e limpeza (Anexo VIII)",
+    "Cst": "200",
+    "PercRedIbs": 60,
+    "PercRedCbs": 60,
+    "IndNfe": true,
+    "IndNfce": true,
+    "DthPublicacao": "2026-06-22T00:00:00",
+    "DthFimVig": null,
+    "TexUrlLegislacao": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm#art136",
+    "Anexos": [
+     {
+      "CodNcmNbs": "96190000",
+      "TipoCodigo": "NCM",
+      "TipoPermissao": "PERMITIDO",
+      "DescCondicao": "PRODUTOS DE HIGIENE PESSOAL E LIMPEZA MAJORITARIAMENTE CONSUMIDOS POR FAMÍLIAS DE BAIXA RENDA",
+      "DescExcecao": null,
+      "DescItemAnexo": "Fraldas e artigos higiênicos semelhantes, de qualquer matéria classificadas no código 9619.00.00 da NCM/SH",
+      "DthFimVig": null
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "Cst": "220",
+  "NomeCst": "Alíquota fixa",
+  "ClassificacoesTributarias": [
+   {
+    "CodClassTrib": "220001",
+    "NomeClassTrib": "Incorporação imobiliária submetida ao regime especial de tributação, observado o art. 485 da Lei Complementar nº 214, de 2025.",
+    "NomeReduzido": "Incorporação imobiliária submetida ao regime especial de tributação",
+    "Cst": "220",
+    "PercRedIbs": 0,
+    "PercRedCbs": 0,
+    "IndNfe": false,
+    "IndNfce": false,
+    "DthPublicacao": "2026-06-22T00:00:00",
+    "DthFimVig": "2026-01-01T00:00:00",
+    "TexUrlLegislacao": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm#art485",
+    "Anexos": []
+   }
+  ]
+ },
+ {
+  "Cst": "550",
+  "NomeCst": "Suspensão",
+  "ClassificacoesTributarias": [
+   {
+    "CodClassTrib": "550001",
+    "NomeClassTrib": "Exportações de bens materiais, observado o art. 82 da Lei Complementar nº 214, de 2025.",
+    "NomeReduzido": "Exportações de bens materiais",
+    "Cst": "550",
+    "PercRedIbs": 0,
+    "PercRedCbs": 0,
+    "IndNfe": true,
+    "IndNfce": false,
+    "DthPublicacao": "2026-06-22T00:00:00",
+    "DthFimVig": null,
+    "TexUrlLegislacao": "https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp214.htm#art82",
+    "Anexos": []
+   }
+  ]
+ }
+]

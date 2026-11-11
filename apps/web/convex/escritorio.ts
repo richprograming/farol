@@ -5,7 +5,7 @@
 // com um escritório. Toda função pública passa por aqui; sem login, nada é lido.
 
 import { ConvexError, v } from 'convex/values';
-import type { ContextoCalculo, RegraClassificacao } from '@farol/core';
+import type { ContextoCalculo, TabelaCompacta } from '@farol/core';
 
 import { internalQuery, type QueryCtx } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
@@ -49,7 +49,7 @@ export function doEscritorio<T extends { escritorioId: Id<'escritorios'> }>(
 }
 
 export interface BaseCalculo {
-  tabela: RegraClassificacao[];
+  tabela: TabelaCompacta; // compacta: quem calcula expande (expandirTabela)
   contexto: ContextoCalculo;
   tabelaInfo: { versao: string; fonte: string; exemplo: boolean };
   parametrosInfo: { versao: string; fonte: string; estimativa: boolean };
@@ -60,7 +60,7 @@ export async function baseCalculo(ctx: QueryCtx, escritorio: Doc<'escritorios'>)
   const parametros = await ctx.db.get(escritorio.parametrosVersaoId);
   if (!tabela || !parametros) throw new ConvexError('Versão de tabela ou de parâmetros não encontrada.');
   return {
-    tabela: tabela.regras,
+    tabela: tabela.tabela,
     contexto: {
       transicao: parametros.transicao,
       versoes: { parametros: parametros.versao, tabela: tabela.versao },

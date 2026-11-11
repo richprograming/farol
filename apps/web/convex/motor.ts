@@ -8,7 +8,7 @@
 
 import { v } from 'convex/values';
 import {
-  analisarCliente, impactoDaMudanca, rascunharAviso,
+  analisarCliente, expandirTabela, impactoDaMudanca, rascunharAviso,
   type Cliente, type Mudanca, type NotaFiscal,
 } from '@farol/core';
 
@@ -80,10 +80,11 @@ export const recalcularCliente = internalAction({
     const { cliente: c, escritorio, base, mudancas } = dados;
     const cliente: Cliente = { cnpj: c.cnpj, nome: c.nome, regime: c.regime, diasFloat: c.diasFloat, notas };
     const revisoes = new Map(dados.revisoes);
+    const tabela = expandirTabela(base.tabela);
 
-    const a = analisarCliente(cliente, base.tabela, revisoes, base.contexto);
+    const a = analisarCliente(cliente, tabela, revisoes, base.contexto);
     const impactos = mudancas.map((m) => {
-      const [afetado] = impactoDaMudanca([cliente], base.tabela, paraMudanca(m), revisoes, base.contexto);
+      const [afetado] = impactoDaMudanca([cliente], tabela, paraMudanca(m), revisoes, base.contexto);
       if (!afetado) return { mudancaId: m._id, afetado: null };
       const aviso = rascunharAviso(escritorio.nome, afetado, paraMudanca(m), c.email);
       return {

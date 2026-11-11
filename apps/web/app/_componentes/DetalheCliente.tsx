@@ -85,7 +85,11 @@ function LinhaProduto({ p }: { p: Produto }) {
           <div className="revisao">
             <span className={`pilula ${tom}`}>{rotulo}</span>{' '}
             <select aria-label={`Tratamento de ${p.descricao}`} value={escolha} onChange={(e) => setEscolha(e.target.value)}>
-              {c.candidatos.map((t) => <option key={t.cClassTrib} value={t.cClassTrib}>{t.cClassTrib} · {t.descricao}</option>)}
+              {c.candidatos.map((t) => (
+                <option key={t.cClassTrib} value={t.cClassTrib}>
+                  {t.cClassTrib} · redução {Math.round(t.reducao * 100)}% · {t.descricao}
+                </option>
+              ))}
             </select>{' '}
             <button className="botao secundario" disabled={salvando} onClick={async () => {
               setSalvando(true);
@@ -98,15 +102,30 @@ function LinhaProduto({ p }: { p: Produto }) {
               }
             }}>{salvando ? 'Recalculando…' : 'Confirmar'}</button>
             <div className="citacao">{c.motivo}</div>
+            {c.status === 'revisar' && <ItensDoAnexo ncm={p.ncm} />}
             {erro && <div className="erro">{erro}</div>}
           </div>
         ) : (
           <div>
             <span className={`pilula ${tom}`}>{rotulo}</span> {c.tratamento.cClassTrib} · {c.tratamento.descricao}
             <div className="citacao">{c.tratamento.baseLegal}</div>
+            {c.tratamento.ressalva && <div className="citacao ressalva">Atenção: {c.tratamento.ressalva}</div>}
           </div>
         )}
       </td>
     </tr>
+  );
+}
+
+/** Texto oficial dos itens de anexo que decidem entre os códigos. Só consulta quando o contador abre. */
+function ItensDoAnexo({ ncm }: { ncm: string }) {
+  const [aberto, setAberto] = useState(false);
+  const linhas = useQuery(api.carteira.criterio, aberto ? { ncm } : 'skip');
+  return (
+    <details className="itens-anexo" onToggle={(e) => setAberto(e.currentTarget.open)}>
+      <summary>Ver os itens do anexo para o NCM {ncm}</summary>
+      {linhas === undefined ? <p className="citacao">Carregando…</p>
+        : <ul>{linhas.slice(1).map((l) => <li key={l}>{l}</li>)}</ul>}
+    </details>
   );
 }

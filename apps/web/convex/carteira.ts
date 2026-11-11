@@ -1,7 +1,7 @@
 // Carteira, detalhe do cliente e revisão de classificação.
 
 import { ConvexError, v } from 'convex/values';
-import { INTEGRAL, rankingCarteira, type AnaliseCliente } from '@farol/core';
+import { criterioDoNcm, expandirTabela, rankingCarteira, tratamentoConhecido, type AnaliseCliente } from '@farol/core';
 
 import { mutation, query } from './_generated/server';
 import { baseCalculo, doEscritorio, escritorioAtual } from './escritorio';
@@ -44,13 +44,22 @@ export const cliente = query({
   },
 });
 
+/** Itens do anexo (texto oficial) que decidem entre os tratamentos de um NCM. Lido só quando o contador abre. */
+export const criterio = query({
+  args: { ncm: v.string() },
+  handler: async (ctx, { ncm }) => {
+    const escritorio = await escritorioAtual(ctx);
+    const { tabela } = await baseCalculo(ctx, escritorio);
+    return criterioDoNcm(tabela, ncm);
+  },
+});
+
 export const revisar = mutation({
   args: { chave: v.string(), cClassTrib: v.string() },
   handler: async (ctx, { chave, cClassTrib }) => {
     const escritorio = await escritorioAtual(ctx);
     const { tabela } = await baseCalculo(ctx, escritorio);
-    const conhecidos = new Set([INTEGRAL.cClassTrib, ...tabela.flatMap((r) => r.tratamentos.map((t) => t.cClassTrib))]);
-    if (!conhecidos.has(cClassTrib)) throw new ConvexError(`cClassTrib ${cClassTrib} não está na tabela vigente.`);
+    if (!tratamentoConhecido(expandirTabela(tabela), cClassTrib)) throw new ConvexError(`cClassTrib ${cClassTrib} não está na tabela vigente.`);
     const existente = await ctx.db.query('revisoes')
       .withIndex('by_escritorio_chave', (q) => q.eq('escritorioId', escritorio._id).eq('chave', chave)).unique();
     if (existente) await ctx.db.patch(existente._id, { cClassTrib, revisadaEm: Date.now() });

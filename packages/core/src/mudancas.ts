@@ -6,7 +6,7 @@
 
 import { analisarCliente, CONTEXTO_PADRAO, type AnaliseCliente, type Cliente, type ContextoCalculo } from './analise.ts';
 import type { Revisoes } from './classificar.ts';
-import type { RegraClassificacao, Tratamento } from './tabela-exemplo.ts';
+import type { TabelaClassificacao, Tratamento } from './tabela.ts';
 
 export type EfeitoMudanca =
   | { tipo: 'novo_tratamento_ncm'; ncmPrefixos: string[]; tratamento: Tratamento; criterio?: string }
@@ -23,17 +23,19 @@ export interface Mudanca {
   confirmada: boolean; // o contador confirmou que a extração está certa
 }
 
-export function aplicarMudanca(tabela: RegraClassificacao[], m: Mudanca): RegraClassificacao[] {
+export function aplicarMudanca(tabela: TabelaClassificacao, m: Mudanca): TabelaClassificacao {
   const e = m.efeito;
   if (e.tipo === 'altera_reducao') {
-    return tabela.map((r) => ({
-      ...r,
-      tratamentos: r.tratamentos.map((t) => (t.cClassTrib === e.cClassTrib ? { ...t, reducao: e.novaReducao } : t)),
-    }));
+    const ajustar = (t: Tratamento) => (t.cClassTrib === e.cClassTrib ? { ...t, reducao: e.novaReducao } : t);
+    return {
+      padrao: ajustar(tabela.padrao),
+      regras: tabela.regras.map((r) => ({ ...r, tratamentos: r.tratamentos.map(ajustar) })),
+      avulsos: tabela.avulsos.map(ajustar),
+    };
   }
-  const semEsses = tabela.filter((r) => !e.ncmPrefixos.includes(r.ncmPrefixo));
+  const semEsses = tabela.regras.filter((r) => !e.ncmPrefixos.includes(r.ncmPrefixo));
   const novas = e.ncmPrefixos.map((p) => ({ ncmPrefixo: p, tratamentos: [e.tratamento], criterio: e.criterio }));
-  return [...semEsses, ...novas];
+  return { ...tabela, regras: [...semEsses, ...novas] };
 }
 
 export interface ClienteAfetado {
@@ -48,7 +50,7 @@ export interface ClienteAfetado {
 
 export function impactoDaMudanca(
   carteira: Cliente[],
-  tabela: RegraClassificacao[],
+  tabela: TabelaClassificacao,
   m: Mudanca,
   revisoes: Revisoes = new Map(),
   contexto: ContextoCalculo = CONTEXTO_PADRAO,

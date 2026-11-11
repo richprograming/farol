@@ -3,22 +3,11 @@
 // Os códigos começam com "EX" de propósito, para ninguém confundir com códigos reais.
 // Antes de qualquer uso com cliente, substituir pela tabela oficial publicada no
 // Portal da NF-e / Conformidade Fácil e pelos anexos da LC 214/2025, carregando-a
-// com o mesmo formato (ver `RegraClassificacao`).
+// com o mesmo formato (ver `TabelaClassificacao` em tabela.ts).
 
-export interface Tratamento {
-  cClassTrib: string;
-  descricao: string;
-  reducao: number; // fração da alíquota reduzida (0.6 = redução de 60%; 1 = alíquota zero)
-  baseLegal: string; // texto curto + referência, exibido como citação
-}
+import type { RegraClassificacao, TabelaClassificacao, Tratamento } from './tabela.ts';
 
-export interface RegraClassificacao {
-  ncmPrefixo: string; // casa com o início do NCM (2, 4, 6 ou 8 dígitos)
-  tratamentos: Tratamento[]; // mais de um = depende da descrição do produto → revisão
-  criterio?: string; // o que decide entre os tratamentos (mostrado ao contador)
-}
-
-export const VERSAO_TABELA = 'exemplo-0.1';
+export const VERSAO_TABELA = 'exemplo-0.2';
 
 export const INTEGRAL: Tratamento = {
   cClassTrib: 'EX0001',
@@ -27,19 +16,23 @@ export const INTEGRAL: Tratamento = {
   baseLegal: 'Regra geral — LC 214/2025 (exemplo, conferir artigo)',
 };
 
-export const TABELA_EXEMPLO: RegraClassificacao[] = [
+// Um código tem um só conteúdo em toda a tabela (a forma compacta exige).
+const CESTA_BASICA: Tratamento = {
+  cClassTrib: 'EX2001', descricao: 'Cesta básica — alíquota zero (exemplo)', reducao: 1,
+  baseLegal: 'LC 214/2025, Anexo I — produtos da Cesta Básica Nacional (exemplo, conferir)',
+};
+
+const REGRAS_EXEMPLO: RegraClassificacao[] = [
   {
     ncmPrefixo: '1006',
     tratamentos: [
-      { cClassTrib: 'EX2001', descricao: 'Cesta básica — alíquota zero (exemplo)', reducao: 1,
-        baseLegal: 'LC 214/2025, Anexo I — produtos da Cesta Básica Nacional (exemplo, conferir)' },
+      CESTA_BASICA,
     ],
   },
   {
     ncmPrefixo: '0401',
     tratamentos: [
-      { cClassTrib: 'EX2001', descricao: 'Cesta básica — alíquota zero (exemplo)', reducao: 1,
-        baseLegal: 'LC 214/2025, Anexo I (exemplo, conferir)' },
+      CESTA_BASICA,
     ],
   },
   {
@@ -62,3 +55,5 @@ export const TABELA_EXEMPLO: RegraClassificacao[] = [
     ],
   },
 ];
+
+export const TABELA_EXEMPLO: TabelaClassificacao = { padrao: INTEGRAL, regras: REGRAS_EXEMPLO, avulsos: [] };

@@ -12,7 +12,8 @@
 import { chaveProduto, classificarItem, type Classificacao, type Revisoes } from './classificar.ts';
 import type { ItemNota, NotaFiscal, Regime } from './nfe.ts';
 import { DIAS_FLOAT_PADRAO, TRANSICAO, VERSAO_PARAMETROS, type AnoTransicao } from './parametros.ts';
-import { VERSAO_TABELA, type RegraClassificacao } from './tabela-exemplo.ts';
+import type { TabelaClassificacao } from './tabela.ts';
+import { VERSAO_TABELA } from './tabela-exemplo.ts';
 
 export interface Cliente {
   cnpj: string;
@@ -135,7 +136,7 @@ function projetarAno(p: AnoTransicao, v: Soma, c: Soma, meses: number, atual: nu
 
 export function analisarCliente(
   cliente: Cliente,
-  tabela: RegraClassificacao[],
+  tabela: TabelaClassificacao,
   revisoes: Revisoes = new Map(),
   contexto: ContextoCalculo = CONTEXTO_PADRAO,
 ): AnaliseCliente {

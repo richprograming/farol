@@ -17,12 +17,15 @@ export const vTratamento = v.object({
   descricao: v.string(),
   reducao: v.number(),
   baseLegal: v.string(),
+  ressalva: v.optional(v.string()),
 });
 
-export const vRegra = v.object({
-  ncmPrefixo: v.string(),
+/** Tabela de classificação na forma compacta do core (TabelaCompacta). */
+export const vTabelaCompacta = v.object({
+  padrao: v.string(),
   tratamentos: v.array(vTratamento),
-  criterio: v.optional(v.string()),
+  textos: v.array(v.string()),
+  regras: v.array(v.object({ ncm: v.string(), codigos: v.array(v.string()), textos: v.optional(v.array(v.number())) })),
 });
 
 export const vAnoTransicao = v.object({
@@ -144,7 +147,7 @@ export default defineSchema({
     versao: v.string(),
     fonte: v.string(), // de onde veio (arquivo oficial + data, ou "exemplo")
     exemplo: v.boolean(), // true = não é a tabela oficial
-    regras: v.array(vRegra),
+    tabela: vTabelaCompacta, // ver TabelaCompacta no core; a oficial ocupa ~280 KB
     escritorioId: v.optional(v.id('escritorios')),
     baseId: v.optional(v.id('versoesTabela')),
     mudancaId: v.optional(v.id('mudancas')),

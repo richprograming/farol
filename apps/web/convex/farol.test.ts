@@ -3,7 +3,8 @@
 
 import { convexTest } from 'convex-test';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { lerNota } from '@farol/core';
+import { CRITERIO_ANEXO, lerNota, VERSAO_TABELA } from '@farol/core';
+import { TABELA_OFICIAL_INFO } from '@farol/core/tabela-oficial';
 
 import { api, internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
@@ -39,16 +40,27 @@ const BETO = { subject: 'user_beto', email: 'beto@outro.exemplo' };
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-/** Usuário logado com escritório criado, duas notas importadas e as mudanças de exemplo. */
+/** Escritório em modo DEMONSTRAÇÃO (tabela de exemplo): duas notas sintéticas e as mudanças fictícias. */
 async function preparar() {
   const t = convexTest(schema, modules);
   const ana = t.withIdentity(ANA);
   const escritorioId = await ana.mutation(api.conta.criarEscritorio, { nome: 'Contabilidade da Ana' });
-  const r = await ana.action(api.notas.importar, { xmls: NOTAS, email: 'cliente@exemplo.com' });
+  await t.mutation(internal.demo.prepararDemo, { escritorioId });
+  const r = await t.action(internal.notas.importarInterno, { escritorioId, xmls: NOTAS, email: 'cliente@exemplo.com', sintetico: true });
   await t.mutation(internal.demo.criarMudancasExemplo, { escritorioId });
   await t.finishAllScheduledFunctions(vi.runAllTimers);
   const fraldas = (await ana.query(api.radar.mudancas, {})).find((m) => m.ref === 'exemplo-fraldas')!;
   return { t, ana, r, fraldas, escritorioId };
+}
+
+/** Escritório com cliente REAL, enviado pelo upload: tabela oficial. */
+async function prepararReal() {
+  const t = convexTest(schema, modules);
+  const ana = t.withIdentity(ANA);
+  const escritorioId = await ana.mutation(api.conta.criarEscritorio, { nome: 'Contabilidade da Ana' });
+  const r = await ana.action(api.notas.importar, { xmls: NOTAS, email: 'cliente@exemplo.com' });
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  return { t, ana, r, escritorioId };
 }
 
 test('login: sem identidade nada é lido; o 1º acesso cria o escritório com o usuário como dono', async () => {
@@ -68,12 +80,13 @@ test('login: sem identidade nada é lido; o 1º acesso cria o escritório com o 
   const membros = await t.run((ctx) => ctx.db.query('membros').collect());
   expect(membros).toMatchObject([{ escritorioId: id, papel: 'dono' }]);
   const resumo = await ana.query(api.carteira.resumo, {});
-  expect(resumo).toMatchObject({ escritorio: 'Contabilidade da Ana', clientes: [], tabela: { versao: 'exemplo-0.1', exemplo: true } });
+  expect(resumo).toMatchObject({ escritorio: 'Contabilidade da Ana', clientes: [], tabela: { versao: TABELA_OFICIAL_INFO.versao, exemplo: false } });
+  expect(resumo.tabela.fonte).toContain(TABELA_OFICIAL_INFO.sha256);
   expect(await ana.query(api.radar.mudancas, {})).toEqual([]); // escritório novo não ganha mudança fictícia
 });
 
-test('importar: grava itens normalizados, mascara CPF e calcula a análise', async () => {
-  const { t, ana, r } = await preparar();
+test('importar: grava itens normalizados, mascara CPF e calcula a análise com a tabela oficial', async () => {
+  const { t, ana, r } = await prepararReal();
   expect(r).toMatchObject({ cnpj: CNPJ, lidas: 2, novas: 2, duplicadas: 0, erros: [] });
   const notas = await t.run((ctx) => ctx.db.query('notas').collect());
   expect(notas).toHaveLength(2);
@@ -83,12 +96,32 @@ test('importar: grava itens normalizados, mascara CPF e calcula a análise', asy
   expect(JSON.stringify(notas)).not.toContain('<infNFe');
   const resumo = await ana.query(api.carteira.resumo, {});
   expect(resumo.pendentes).toHaveLength(0);
-  expect(resumo.clientes[0]).toMatchObject({ cnpj: CNPJ, meses: 2, sintetico: true });
-  expect(resumo.clientes[0].versoes).toEqual({ tabela: 'exemplo-0.1', parametros: '2026-11-07-exemplo' });
+  // "sintético" é marcado por quem importa, não pelo nome que vem na nota
+  expect(resumo.clientes[0]).toMatchObject({ cnpj: CNPJ, meses: 2, sintetico: false });
+  expect(resumo.clientes[0].versoes).toEqual({ tabela: TABELA_OFICIAL_INFO.versao, parametros: '2026-11-07-exemplo' });
+});
+
+test('tabela oficial: NCM de anexo vai para revisão com a integral na conta; o contador decide e a conta muda', async () => {
+  const { t, ana } = await prepararReal();
+  const c = (await ana.query(api.carteira.resumo, {})).clientes[0];
+  const det = await ana.query(api.carteira.cliente, { clienteId: c.clienteId });
+  const fralda = det.analise!.produtos.find((p) => p.descricao === 'FRALDA G')!;
+  expect(fralda.classificacao).toMatchObject({ status: 'revisar', precisaRevisao: true, motivo: CRITERIO_ANEXO, tratamento: { cClassTrib: '000001', reducao: 0 } });
+  expect(fralda.classificacao.candidatos.map((x) => x.cClassTrib)).toEqual(['000001', '200013', '200035']);
+  const linhas = await ana.query(api.carteira.criterio, { ncm: '96190000' });
+  expect(linhas[0]).toBe(CRITERIO_ANEXO);
+  expect(linhas.slice(1).every((l) => /^2000(13|35) /.test(l))).toBe(true);
+
+  await expect(ana.mutation(api.carteira.revisar, { chave: fralda.chave, cClassTrib: 'EX2063' })).rejects.toThrow(/não está na tabela/);
+  await ana.mutation(api.carteira.revisar, { chave: fralda.chave, cClassTrib: '200013' });
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+  const depois = (await ana.query(api.carteira.cliente, { clienteId: c.clienteId })).analise!;
+  expect(depois.produtos.find((p) => p.descricao === 'FRALDA G')!.classificacao).toMatchObject({ status: 'revisado', tratamento: { cClassTrib: '200013', reducao: 1 } });
+  expect(depois.exposicao2027).toBeLessThan(c.exposicao2027);
 });
 
 test('importar: notas repetidas são ignoradas pela chave e notas de outro CNPJ viram erro por arquivo', async () => {
-  const { t, ana } = await preparar();
+  const { t, ana } = await prepararReal();
   const estranha = { nome: 'c.xml', conteudo: xml({ chave: '3'.repeat(44), emit: OUTRO, ncm: '22021000', desc: 'REFRI', valor: 10 }) };
   const r = await ana.action(api.notas.importar, { xmls: [...NOTAS, estranha, { nome: 'd.xml', conteudo: '<html/>' }], cnpj: CNPJ });
   expect(r.novas).toBe(0);
@@ -113,7 +146,7 @@ test('radar: confirmar calcula o impacto; aprovar grava e envia (simulado sem ch
   const [impacto, ...resto] = await ana.query(api.radar.impactos, { mudancaId: fraldas._id });
   expect(resto).toHaveLength(0);
   expect(impacto.variacaoMensal).toBeLessThan(0);
-  expect(impacto.versoes.tabela).toBe('exemplo-0.1+exemplo-fraldas');
+  expect(impacto.versoes.tabela).toBe(`${VERSAO_TABELA}+exemplo-fraldas`);
   expect(impacto.aviso.texto).toContain(fraldas.fonte);
   expect(impacto.aviso.texto).toContain('Contabilidade da Ana'); // assinado pelo escritório
   expect(impacto.envio).toBeNull();
@@ -134,11 +167,11 @@ test('aplicar: cria versão derivada da tabela só para o escritório e recalcul
   await ana.mutation(api.radar.aplicar, { mudancaId: fraldas._id });
   await t.finishAllScheduledFunctions(vi.runAllTimers);
   const resumo = await ana.query(api.carteira.resumo, {});
-  expect(resumo.tabela.versao).toBe('exemplo-0.1+exemplo-fraldas');
-  expect(resumo.clientes[0].versoes.tabela).toBe('exemplo-0.1+exemplo-fraldas');
+  expect(resumo.tabela.versao).toBe(`${VERSAO_TABELA}+exemplo-fraldas`);
+  expect(resumo.clientes[0].versoes.tabela).toBe(`${VERSAO_TABELA}+exemplo-fraldas`);
   expect(resumo.clientes[0].exposicao2027).toBeLessThan(antes);
   expect((await ana.query(api.radar.mudancas, {})).map((m) => m.ref)).not.toContain('exemplo-fraldas');
-  const base = await t.run((ctx) => ctx.db.query('versoesTabela').withIndex('by_versao', (q) => q.eq('versao', 'exemplo-0.1')).unique());
+  const base = await t.run((ctx) => ctx.db.query('versoesTabela').withIndex('by_versao', (q) => q.eq('versao', VERSAO_TABELA)).unique());
   expect(base!.escritorioId).toBeUndefined();
 });
 
@@ -179,7 +212,7 @@ test('isolamento: cada usuário só vê e só mexe no próprio escritório', asy
   // Revisão de um escritório não muda a conta do outro
   const det = await ana.query(api.carteira.cliente, { clienteId: clienteDaAna });
   const chave = det.analise!.produtos.find((p) => p.descricao === 'DIPIRONA')!.chave;
-  await beto.mutation(api.carteira.revisar, { chave, cClassTrib: 'EX2002' });
+  await beto.mutation(api.carteira.revisar, { chave, cClassTrib: '000001' }); // Beto está na tabela oficial
   await t.finishAllScheduledFunctions(vi.runAllTimers);
   const dip = (await ana.query(api.carteira.cliente, { clienteId: clienteDaAna })).analise!.produtos.find((p) => p.descricao === 'DIPIRONA')!;
   expect(dip.classificacao.status).toBe('revisar');
@@ -198,14 +231,23 @@ test('demonstração: carrega a carteira sintética no próprio escritório e re
   expect((await ana.query(api.radar.mudancas, {})).map((m) => m.ref).sort()).toEqual(['exemplo-detergentes', 'exemplo-fraldas']);
   expect((await ana.action(api.demo.carregar, {})).notas).toBe(0); // de novo: nada duplica
 
+  expect(resumo.tabela).toMatchObject({ versao: VERSAO_TABELA, exemplo: true }); // a demo roda na tabela de exemplo
+
+  // Cliente real não entra enquanto o escritório está na demonstração (seria calculado com a tabela de exemplo)
+  const real = xml({ chave: '7'.repeat(44), emit: CNPJ, ncm: '30049069', desc: 'X', valor: 10 }).replace('(SINTETICO)', 'LTDA');
+  await expect(ana.action(api.notas.importar, { xmls: [{ nome: 'r.xml', conteudo: real }] })).rejects.toThrow(/Recomeçar demonstração/);
+
   await ana.mutation(api.demo.recomecar, {});
-  expect((await ana.query(api.carteira.resumo, {})).clientes).toHaveLength(0);
+  const limpo = await ana.query(api.carteira.resumo, {});
+  expect(limpo.clientes).toHaveLength(0);
+  expect(limpo.tabela).toMatchObject({ versao: TABELA_OFICIAL_INFO.versao, exemplo: false }); // volta para a oficial
   expect(await ana.query(api.radar.mudancas, {})).toEqual([]);
 
-  // Com um cliente real na carteira, recomeçar é recusado
-  const real = xml({ chave: '7'.repeat(44), emit: CNPJ, ncm: '30049069', desc: 'X', valor: 10 }).replace('(SINTETICO)', 'LTDA');
+  // Com um cliente real na carteira, nem carregar nem recomeçar a demonstração
   await ana.action(api.notas.importar, { xmls: [{ nome: 'r.xml', conteudo: real }] });
+  await expect(ana.action(api.demo.carregar, {})).rejects.toThrow(/clientes reais/);
   await expect(ana.mutation(api.demo.recomecar, {})).rejects.toThrow(/clientes reais/);
+  expect((await ana.query(api.carteira.resumo, {})).tabela.exemplo).toBe(false);
 });
 
 test('identificar cliente: lote com mais compras que vendas não elege o fornecedor', () => {
