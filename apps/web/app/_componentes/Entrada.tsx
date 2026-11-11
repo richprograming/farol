@@ -1,5 +1,6 @@
 'use client';
 
+import { useAuth } from '@workos-inc/authkit-nextjs/components';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 
@@ -12,6 +13,8 @@ import { Topo } from './Topo';
 export function Entrada({ children }: { children: ReactNode }) {
   const { isLoading, isAuthenticated } = useConvexAuth();
   const eu = useQuery(api.conta.eu, isAuthenticated ? {} : 'skip');
+  // O token do WorkOS não traz o e-mail por padrão; para exibir, usa o da sessão do AuthKit.
+  const { user } = useAuth();
 
   if (isLoading || (isAuthenticated && eu === undefined)) return <main><p className="sub">Carregando…</p></main>;
   if (!isAuthenticated || !eu?.logado) {
@@ -25,10 +28,11 @@ export function Entrada({ children }: { children: ReactNode }) {
       </main>
     );
   }
-  if (!eu.escritorio) return <main><CriarEscritorio email={eu.email} /></main>;
+  const email = eu.email || user?.email || '';
+  if (!eu.escritorio) return <main><CriarEscritorio email={email} /></main>;
   return (
     <>
-      <Topo email={eu.email} />
+      <Topo email={email} />
       <main>{children}</main>
     </>
   );

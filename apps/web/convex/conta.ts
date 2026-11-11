@@ -20,7 +20,7 @@ export const eu = query({
     const escritorio = usuario ? await escritorioDoUsuario(ctx, usuario._id) : null;
     return {
       logado: true as const,
-      email: usuario?.email ?? identidade.email ?? '',
+      email: usuario?.email || identidade.email || '',
       escritorio: escritorio ? { _id: escritorio._id, nome: escritorio.nome } : null,
     };
   },
