@@ -4,7 +4,7 @@
 
 Projeto do Hack Brasil 2026.
 
-> **Protótipo.** Os dados de demonstração (`packages/core/src/sinteticos.ts`) são sintéticos. A tabela de cClassTrib em `packages/core/src/tabela-exemplo.ts` é um exemplo (códigos `EX…`), não a oficial. As alíquotas a partir de 2027 em `packages/core/src/parametros.ts` são estimativas. Nada aqui é orientação tributária.
+> **Protótipo.** Os dados de demonstração (`packages/core/src/sinteticos.ts`) são sintéticos e são calculados com uma tabela de cClassTrib de EXEMPLO (`packages/core/src/tabela-exemplo.ts`, códigos `EX…`). Clientes reais usam a tabela oficial (veja abaixo). As alíquotas a partir de 2027 em `packages/core/src/parametros.ts` são estimativas. Nada aqui é orientação tributária.
 
 ## Rodar
 
@@ -48,12 +48,32 @@ Variáveis de ambiente das funções do Convex (`npx convex env set NOME valor`,
 | `RESEND_API_KEY`, `FAROL_REMETENTE` | Envia os avisos de verdade pelo Resend; sem elas, o envio é simulado e fica registrado como tal |
 | `FIRECRAWL_API_KEY` | Usada pelo Agente Vigia (`packages/core/src/integracoes/firecrawl.ts`; ainda não agendado) |
 
+## Tabela oficial de cClassTrib
+
+A tabela vem do Portal da Conformidade Fácil (SVRS), página [Classificação Tributária](https://dfe-portal.svrs.rs.gov.br/DFE/ClassificacaoTributaria). Ela traz os CSTs, os cClassTrib com percentual de redução e link da LC 214/2025 e, por código, os NCMs dos anexos com condição, exceções e vigência. O botão "Exportar para JSON" do portal perde os anexos, então o importador lê a própria página.
+
+```bash
+npm run tabela:oficial -w @farol/core                  # baixa a página agora
+npm run tabela:oficial -w @farol/core -- pagina.html   # ou usa uma cópia salva
+```
+
+O comando gera `packages/core/src/tabela-oficial.ts`, que vai para o git, com a versão (`oficial-<publicação mais recente>-<sha256>`), a data do download e o sha256 dos dados extraídos. Escritórios novos começam nessa versão. Uma versão nova não troca a tabela de quem já está usando outra.
+
+Como o Farol usa a tabela (decisões de produto; código em `packages/core/src/oficial.ts`):
+
+- **Entram só os códigos que valem para NF-e/NFC-e** e ainda estão vigentes.
+- **NCM listado em anexo sempre vai para revisão.** As opções são a tributação integral (`000001`) e os códigos do anexo. A redução depende de o produto se enquadrar no item do anexo; pão francês e bolo têm o mesmo NCM, por exemplo. Até o contador decidir, a conta usa a integral, e ele vê o texto oficial de cada item.
+- **Ressalva para mecânicas que a conta não modela.** Códigos de diferimento, suspensão, monofásica, imunidade etc. recebem uma ressalva e também vão para revisão, porque a conta só modela redução de alíquota.
+- **A importação falha em vez de escolher.** Se a fonte trouxer reduções diferentes para IBS e CBS, ou um tipo de permissão desconhecido, a importação para.
+
 ## Fluxo da demo
 
 1. **Carteira:** clientes ordenados pela variação mensal estimada em 2027. Clique num cliente para ver a projeção 2026–2033, o efeito do split payment e cada produto com seu tratamento e base legal.
 2. **Revisão:** produtos cujo NCM admite mais de um tratamento aparecem como "Revisar". A conta usa o tratamento mais conservador até o contador confirmar; ao confirmar, a carteira se recalcula e a tela se atualiza sozinha.
 3. **Adicionar cliente:** suba XMLs de NF-e/NFC-e. O cliente é o CNPJ que aparece em mais notas (emitente das vendas ou destinatário das compras). CPFs de consumidores são mascarados na leitura, o XML não é guardado (só os itens) e notas repetidas são ignoradas pela chave.
-4. **Radar:** mudanças normativas (na demo, duas fictícias). Confirme a leitura e o Farol mostra os clientes afetados, a variação em reais e o rascunho do aviso. **Aprovar e enviar** grava a aprovação e manda pelo Resend. **Incorporar à tabela do escritório** cria uma nova versão da tabela (ex.: `exemplo-0.1+exemplo-fraldas`), que passa a aparecer em cada cálculo.
+4. **Radar:** mudanças normativas (na demo, duas fictícias). Confirme a leitura e o Farol mostra os clientes afetados, a variação em reais e o rascunho do aviso. **Aprovar e enviar** grava a aprovação e manda pelo Resend. **Incorporar à tabela do escritório** cria uma nova versão da tabela (ex.: `exemplo-0.2+exemplo-fraldas`), que passa a aparecer em cada cálculo.
+
+**Carregar carteira de demonstração** passa o escritório para a tabela de exemplo, porque as mudanças fictícias usam códigos `EX…`. **Recomeçar demonstração** apaga tudo e volta para a oficial. As duas ações só funcionam sem clientes reais. Enquanto a demonstração está carregada, o upload de clientes reais é recusado, para que dados reais nunca sejam calculados com a tabela de exemplo.
 
 ## Arquitetura
 
@@ -66,7 +86,10 @@ packages/core/          @farol/core: regras e contas, sem IA, sem dependências 
   src/mudancas.ts       mudança normativa → clientes afetados (Agente Impacto)
   src/aviso.ts          rascunho do aviso ao cliente (Comunicador)
   src/parametros.ts     alíquotas e calendário da transição (ESTIMATIVAS marcadas)
-  src/tabela-exemplo.ts tabela de classificação de EXEMPLO
+  src/tabela.ts         formato da tabela (expandida para as contas, compacta para guardar)
+  src/oficial.ts        conversão da página oficial de cClassTrib → tabela do Farol
+  src/tabela-oficial.ts GERADO por scripts/importar-cclasstrib.ts (versão, fonte, sha256)
+  src/tabela-exemplo.ts tabela de classificação de EXEMPLO (só a demonstração)
   src/integracoes/      firecrawl.ts (Agente Vigia) e resend.ts (envio de avisos aprovados)
   src/sinteticos.ts     gerador de NF-e sintéticas (usado pelas fixtures dos testes e pela demo)
 apps/web/               Next.js (App Router) + Convex
@@ -76,6 +99,7 @@ apps/web/               Next.js (App Router) + Convex
   convex/escritorio.ts  escritorioAtual(): único ponto que decide o escritório (usuário do token → vínculo em `membros`)
   convex/conta.ts       sessão e 1º acesso (cria o escritório; o usuário vira dono)
   convex/demo.ts        carteira de demonstração sintética dentro do escritório do usuário
+  convex/tabelas.ts     versões base da tabela (oficial para todos; exemplo só na demonstração)
   convex/motor.ts       recalcula com o core quando notas, revisões, tabela ou mudanças mudam
   convex/notas.ts       entrada de XMLs
   convex/carteira.ts    carteira, detalhe e revisão
@@ -102,7 +126,11 @@ Princípio: **a IA lê, classifica, vigia e redige; o motor faz as contas; o con
 - [x] Login com WorkOS AuthKit; cada usuário vinculado a um escritório; todas as consultas filtradas pelo escritório do token
 - [ ] Convidar outros membros para o escritório (a tabela `membros` já comporta)
 - [ ] Criar conta no Convex para a demo pública (hoje o back-end roda local, sem conta)
-- [ ] Importador da tabela oficial de cClassTrib, versionado e com fonte (tarefa 4) — aguarda o arquivo oficial do time
+- [x] Importador da tabela oficial de cClassTrib, versionado e com fonte (tarefa 4); escritórios novos usam a oficial
+- [ ] Avisar quando sair versão nova da tabela oficial e deixar o escritório trocar (com recálculo e comparação)
+- [ ] Modelar as mecânicas com ressalva (diferimento, monofásica, suspensão, imunidade); hoje vão para revisão
+- [ ] Serviços (NBS) e NFS-e: o importador hoje só usa os NCMs dos anexos
+- [ ] Guardar a análise por produto em documentos separados: um cliente com milhares de produtos não cabe num documento só (limite de 1 MB do Convex)
 - [ ] Trocar `parametros.ts` pelas alíquotas oficiais quando publicadas
 - [ ] `SugestorIA` (LLM + RAG nos anexos da LC 214/2025) e `scripts/avaliar.ts` com o conjunto-ouro (tarefa 5)
 - [ ] `ExtratorMudanca`, tarefa diária no Convex e modo "reprocessar" (tarefa 6) — aguarda as URLs exatas das fontes
