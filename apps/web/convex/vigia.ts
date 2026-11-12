@@ -44,7 +44,9 @@ async function processar(
   const hash = await sha256(json);
   const hoje = new Date().toISOString().slice(0, 10);
   const { tabela, resumo } = converterTabelaOficial(JSON.parse(json) as CstOficial[], hoje);
-  const versao = `oficial-${resumo.publicacaoMaisRecente}-${hash.slice(0, 8)}`;
+  // A versão é identificada pelo conteúdo JÁ CONVERTIDO (o que o Farol usa): a página muda em campos
+  // que o Farol não lê, e isso não pode virar "versão nova" todo dia.
+  const versao = `oficial-${resumo.publicacaoMaisRecente}-${(await sha256(JSON.stringify(tabela))).slice(0, 8)}`;
   const escritorios: Id<'escritorios'>[] = await ctx.runQuery(internal.vigia.escritorios, {});
   let mudancasCriadas = 0;
   for (const escritorioId of escritorios) {
