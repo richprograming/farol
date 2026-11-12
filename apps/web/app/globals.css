@@ -107,3 +107,7 @@ main { max-width: 1120px; margin: 0 auto; padding: 24px; }
 .erro { color: var(--ruim); font-size: 13.5px; }
 .botao.pequeno { padding: 4px 10px; font-size: 13px; }
 .cabecalho-secao .acoes { margin-top: 0; }
+.relatorio-erros { margin-top: 8px; font-size: 13px; }
+.relatorio-erros summary { cursor: pointer; }
+.relatorio-erros .tabela { margin-top: 6px; }
+.relatorio-erros td { word-break: break-word; }

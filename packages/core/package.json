@@ -11,7 +11,8 @@
     ".": "./src/index.ts",
     "./integracoes/firecrawl": "./src/integracoes/firecrawl.ts",
     "./integracoes/resend": "./src/integracoes/resend.ts",
-    "./tabela-oficial": "./src/tabela-oficial.ts"
+    "./tabela-oficial": "./src/tabela-oficial.ts",
+    "./zip": "./src/zip.ts"
   },
   "scripts": {
     "fixtures": "node scripts/gerar-xmls.ts",
