@@ -78,8 +78,10 @@ const vClassificacao = v.object({
   candidatos: v.array(vTratamento),
   precisaRevisao: v.boolean(),
   motivo: v.string(),
-  sugestaoIA: v.optional(v.object({ cClassTrib: v.string(), confianca: v.number(), justificativa: v.string(), trechoLegal: v.string() })),
 });
+
+/** Sugestão de classificação (core: SugestaoIA). Nunca entra na conta. */
+export const vSugestao = v.object({ cClassTrib: v.string(), confianca: v.number(), justificativa: v.string(), trechoLegal: v.string() });
 
 const vProdutoAfetado = v.object({ descricao: v.string(), ncm: v.string(), de: v.string(), para: v.string(), valorVendas: v.number() });
 
@@ -193,6 +195,22 @@ export default defineSchema({
     chave: v.string(),
     cClassTrib: v.string(),
     revisadaEm: v.number(),
+  })
+    .index('by_escritorio', ['escritorioId'])
+    .index('by_escritorio_chave', ['escritorioId', 'chave']),
+
+  /**
+   * Sugestão de cClassTrib para um produto em revisão (cache por produto + versão da tabela).
+   * `sugestao: null` = o sugestor não conseguiu decidir (o motivo fica em `motivo`).
+   */
+  sugestoes: defineTable({
+    escritorioId: v.id('escritorios'),
+    chave: v.string(), // chaveProduto do core
+    tabelaVersao: v.string(),
+    origem: v.string(), // 'lexical', 'llm:<modelo>' ou 'lexical+falha-ia'
+    sugestao: v.union(vSugestao, v.null()),
+    motivo: v.optional(v.string()),
+    criadaEm: v.number(),
   })
     .index('by_escritorio', ['escritorioId'])
     .index('by_escritorio_chave', ['escritorioId', 'chave']),

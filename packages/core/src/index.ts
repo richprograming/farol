@@ -6,6 +6,7 @@ export * from './tabela-exemplo.ts';
 export * from './oficial.ts';
 export * from './parametros.ts';
 export * from './classificar.ts';
+export * from './sugestor.ts';
 export * from './analise.ts';
 export * from './mudancas.ts';
 export * from './aviso.ts';

@@ -4,8 +4,7 @@
 //   1. decisão do contador já registrada para esse produto (revisões)
 //   2. cClassTrib que veio na própria nota, se a tabela conhece o código
 //   3. tabela: NCM com um único tratamento possível
-//   4. NCM com vários tratamentos → fila de revisão (a IA pode sugerir, nunca decide sozinha)
-// A IA entra só no passo 4, por meio de `SugestorIA`, e sempre devolve a base legal.
+//   4. NCM com vários tratamentos → fila de revisão (sugestor.ts pode sugerir; nunca decide nem entra na conta)
 
 import type { ItemNota } from './nfe.ts';
 import { regraDoNcm, tratamentoConhecido, type TabelaClassificacao, type Tratamento } from './tabela.ts';
@@ -18,18 +17,6 @@ export interface Classificacao {
   candidatos: Tratamento[];
   precisaRevisao: boolean;
   motivo: string;
-  sugestaoIA?: SugestaoIA;
-}
-
-export interface SugestaoIA {
-  cClassTrib: string;
-  confianca: number; // 0 a 1
-  justificativa: string;
-  trechoLegal: string;
-}
-
-export interface SugestorIA {
-  sugerir(item: ItemNota, candidatos: Tratamento[], criterio?: string): Promise<SugestaoIA>;
 }
 
 /** Chave estável de um produto para guardar a decisão do contador. */
@@ -89,20 +76,4 @@ export function classificarItem(
 
 function comRessalva(motivo: string, t: Tratamento): string {
   return t.ressalva ? `${motivo} Atenção: ${t.ressalva}` : motivo;
-}
-
-/** Pede sugestão à IA para itens em revisão. Não muda o tratamento usado na conta. */
-export async function sugerirComIA(
-  item: ItemNota,
-  c: Classificacao,
-  tabela: TabelaClassificacao,
-  sugestor: SugestorIA,
-): Promise<Classificacao> {
-  if (c.status !== 'revisar') return c;
-  const regra = regraDoNcm(item.ncm, tabela);
-  const s = await sugestor.sugerir(item, c.candidatos, regra?.criterio);
-  if (!c.candidatos.some((t) => t.cClassTrib === s.cClassTrib)) {
-    return { ...c, motivo: `${c.motivo} A sugestão da IA (${s.cClassTrib}) não está entre os candidatos e foi descartada.` };
-  }
-  return { ...c, sugestaoIA: s };
 }

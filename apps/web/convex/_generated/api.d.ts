@@ -16,6 +16,7 @@ import type * as exemplos from "../exemplos.js";
 import type * as motor from "../motor.js";
 import type * as notas from "../notas.js";
 import type * as radar from "../radar.js";
+import type * as sugestoes from "../sugestoes.js";
 import type * as tabelas from "../tabelas.js";
 
 import type {
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   motor: typeof motor;
   notas: typeof notas;
   radar: typeof radar;
+  sugestoes: typeof sugestoes;
   tabelas: typeof tabelas;
 }>;
 

@@ -74,7 +74,7 @@ export const recomecar = mutation({
   handler: async (ctx) => {
     const e = await escritorioAtual(ctx);
     await soDadosDeExemplo(ctx, e._id, 'recomeçar a demonstração (ela só apaga dados de exemplo)');
-    for (const t of ['clientes', 'notas', 'analises', 'impactos', 'mudancas', 'revisoes', 'envios'] as const) {
+    for (const t of ['clientes', 'notas', 'analises', 'impactos', 'mudancas', 'revisoes', 'envios', 'sugestoes'] as const) {
       for (const d of await ctx.db.query(t).withIndex('by_escritorio', (q) => q.eq('escritorioId', e._id)).collect()) {
         await ctx.db.delete(d._id);
       }

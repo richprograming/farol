@@ -18,6 +18,7 @@
     "pretest": "node scripts/gerar-xmls.ts",
     "test": "node --test \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
-    "tabela:oficial": "node scripts/importar-cclasstrib.ts"
+    "tabela:oficial": "node scripts/importar-cclasstrib.ts",
+    "avaliar": "node scripts/avaliar.ts"
   }
 }
