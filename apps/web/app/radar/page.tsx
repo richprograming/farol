@@ -119,7 +119,13 @@ function Afetado({ a }: { a: Impacto }) {
   let status = erro;
   if (e?.status === 'enviando') status = 'Aprovado. Enviando…';
   if (e?.status === 'simulado') status = `Aprovado. Envio simulado (sem RESEND_API_KEY) para ${e.para}.`;
-  if (e?.status === 'enviado') status = `Enviado para ${e.para} · id ${e.resendId}`;
+  if (e?.status === 'enviado') {
+    const hora = (ms: number) => new Date(ms).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    status = `Enviado para ${e.para}`;
+    if (e.problemaEntrega) status += ` · ${{ devolvido: 'o e-mail voltou (endereço não recebeu)', spam: 'marcado como spam pelo destinatário', falhou: 'o envio falhou' }[e.problemaEntrega]}`;
+    else if (e.abertoEm) status += ` · aberto em ${hora(e.abertoEm)}`;
+    else if (e.entregueEm) status += ` · entregue em ${hora(e.entregueEm)}`;
+  }
   if (e?.status === 'erro' && !erro) status = `Falha no envio: ${e.erro}. Revise e tente de novo.`;
 
   return (

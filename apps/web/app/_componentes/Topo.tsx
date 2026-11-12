@@ -38,6 +38,7 @@ export function Topo({ email }: { email: string }) {
         <div className="escritorio">
           <span>{resumo?.escritorio}</span>
           <span className="citacao">{email}</span>
+          <Link className="citacao" href="/plano">Plano</Link>
           <form action={sair}><button className="botao secundario pequeno" type="submit">Sair</button></form>
         </div>
       </header>

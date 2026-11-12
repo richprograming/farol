@@ -6,11 +6,11 @@
 
 import { ConvexError, v } from 'convex/values';
 import { aplicarMudanca, compactarTabela, expandirTabela, type Aviso } from '@farol/core';
-import { enviarAviso } from '@farol/core/integracoes/resend';
+import { enviarAviso, remetenteDoEscritorio } from '@farol/core/integracoes/resend';
 
 import { internal } from './_generated/api';
 import { internalAction, internalMutation, internalQuery, mutation, query } from './_generated/server';
-import { doEscritorio, escritorioAtual } from './escritorio';
+import { doEscritorio, escritorioAtual, usuarioAtual } from './escritorio';
 import { agendarEscritorio, paraMudanca } from './motor';
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -113,6 +113,7 @@ export const aprovarEnvio = mutation({
     const envioId = await ctx.db.insert('envios', {
       escritorioId: escritorio._id, mudancaId: m._id, clienteId: a.clienteId,
       para, assunto: a.assunto.trim(), texto: a.texto, status: 'enviando', aprovadoEm: Date.now(),
+      aprovadoPor: (await usuarioAtual(ctx))?._id,
     });
     await ctx.scheduler.runAfter(0, internal.radar.enviar, { envioId });
     return envioId;
@@ -125,7 +126,12 @@ export const envioParaEnviar = internalQuery({
     const e = await ctx.db.get(envioId);
     if (!e || e.status !== 'enviando') return null;
     const cliente = await ctx.db.get(e.clienteId);
-    return { ...e, cnpj: cliente?.cnpj ?? '' };
+    const escritorio = await ctx.db.get(e.escritorioId);
+    const aprovador = e.aprovadoPor ? await ctx.db.get(e.aprovadoPor) : null;
+    return {
+      ...e, cnpj: cliente?.cnpj ?? '', escritorio: escritorio?.nome ?? '',
+      responderPara: aprovador && EMAIL.test(aprovador.email) ? aprovador.email : undefined,
+    };
   },
 });
 
@@ -140,7 +146,10 @@ export const enviar = internalAction({
       e.texto.split('\n').map(escapar).join('<br>')}</div>`;
     const aviso: Aviso = { clienteCnpj: e.cnpj, para: e.para, assunto: e.assunto, texto: e.texto, html, aprovado: true };
     try {
-      const r = await enviarAviso(aviso, process.env.FAROL_REMETENTE ?? 'Farol <avisos@exemplo.com>', process.env.RESEND_API_KEY ?? '');
+      // Sai com o nome do escritório; a resposta do cliente vai para quem aprovou; nova tentativa não duplica.
+      const r = await enviarAviso(aviso, remetenteDoEscritorio(e.escritorio, process.env.FAROL_REMETENTE), process.env.RESEND_API_KEY ?? '', {
+        responderPara: e.responderPara, idempotencia: `farol-envio-${envioId}`, tags: { tipo: 'aviso', envio: envioId },
+      });
       await ctx.runMutation(internal.radar.registrarEnvio, { envioId, status: r.simulado ? 'simulado' : 'enviado', resendId: r.id });
     } catch (err) {
       await ctx.runMutation(internal.radar.registrarEnvio, { envioId, status: 'erro', erro: (err as Error).message.slice(0, 300) });
@@ -160,3 +169,17 @@ export const registrarEnvio = internalMutation({
   },
 });
 
+/** Evento do webhook do Resend (entrega, abertura, devolução). Só marca envios que o Farol fez. */
+export const registrarEvento = internalMutation({
+  args: {
+    resendId: v.string(),
+    evento: v.union(v.literal('entregue'), v.literal('aberto'), v.literal('devolvido'), v.literal('spam'), v.literal('falhou')),
+  },
+  handler: async (ctx, { resendId, evento }) => {
+    const e = await ctx.db.query('envios').withIndex('by_resend', (q) => q.eq('resendId', resendId)).first();
+    if (!e || e.status !== 'enviado') return;
+    if (evento === 'entregue') await ctx.db.patch(e._id, { entregueEm: e.entregueEm ?? Date.now() });
+    else if (evento === 'aberto') await ctx.db.patch(e._id, { abertoEm: e.abertoEm ?? Date.now(), entregueEm: e.entregueEm ?? Date.now() });
+    else await ctx.db.patch(e._id, { problemaEntrega: evento });
+  },
+});

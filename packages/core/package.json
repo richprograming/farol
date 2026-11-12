@@ -11,6 +11,7 @@
     ".": "./src/index.ts",
     "./integracoes/firecrawl": "./src/integracoes/firecrawl.ts",
     "./integracoes/resend": "./src/integracoes/resend.ts",
+    "./integracoes/abacatepay": "./src/integracoes/abacatepay.ts",
     "./tabela-oficial": "./src/tabela-oficial.ts",
     "./zip": "./src/zip.ts"
   },

@@ -241,6 +241,21 @@ export default defineSchema({
     .index('by_escritorio', ['escritorioId'])
     .index('by_escritorio_ref', ['escritorioId', 'ref']),
 
+  /** Checkouts do plano na AbacatePay. `paga` só depois de confirmada na API da AbacatePay. */
+  assinaturas: defineTable({
+    escritorioId: v.id('escritorios'),
+    criadaPor: v.id('usuarios'),
+    checkoutId: v.string(),
+    url: v.string(),
+    valorCentavos: v.number(), // o que a AbacatePay informou; o Farol não define preço
+    devMode: v.boolean(), // true = chave de teste da AbacatePay
+    status: v.union(v.literal('pendente'), v.literal('paga'), v.literal('encerrada')),
+    criadaEm: v.number(),
+    pagaEm: v.optional(v.number()),
+  })
+    .index('by_escritorio', ['escritorioId'])
+    .index('by_checkout', ['checkoutId']),
+
   /** Cada verificação do Agente Vigia (global: a fonte é pública e não tem dado de cliente). */
   vigiaExecucoes: defineTable({
     fonte: v.string(),
@@ -288,8 +303,14 @@ export default defineSchema({
     resendId: v.optional(v.string()),
     erro: v.optional(v.string()),
     aprovadoEm: v.number(),
+    aprovadoPor: v.optional(v.id('usuarios')), // quem clicou em "Aprovar e enviar" (recebe as respostas do cliente)
     enviadoEm: v.optional(v.number()),
+    // Vindos do webhook do Resend:
+    entregueEm: v.optional(v.number()),
+    abertoEm: v.optional(v.number()),
+    problemaEntrega: v.optional(v.union(v.literal('devolvido'), v.literal('spam'), v.literal('falhou'))),
   })
+    .index('by_resend', ['resendId'])
     .index('by_escritorio', ['escritorioId'])
     .index('by_mudanca', ['mudancaId'])
     .index('by_mudanca_cliente', ['mudancaId', 'clienteId']),
