@@ -10,6 +10,7 @@
 
 import type * as carteira from "../carteira.js";
 import type * as conta from "../conta.js";
+import type * as crons from "../crons.js";
 import type * as demo from "../demo.js";
 import type * as escritorio from "../escritorio.js";
 import type * as exemplos from "../exemplos.js";
@@ -18,6 +19,7 @@ import type * as notas from "../notas.js";
 import type * as radar from "../radar.js";
 import type * as sugestoes from "../sugestoes.js";
 import type * as tabelas from "../tabelas.js";
+import type * as vigia from "../vigia.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +30,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   carteira: typeof carteira;
   conta: typeof conta;
+  crons: typeof crons;
   demo: typeof demo;
   escritorio: typeof escritorio;
   exemplos: typeof exemplos;
@@ -36,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   radar: typeof radar;
   sugestoes: typeof sugestoes;
   tabelas: typeof tabelas;
+  vigia: typeof vigia;
 }>;
 
 /**

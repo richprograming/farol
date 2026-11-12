@@ -68,6 +68,13 @@ export const vNota = v.object({
 export const vEfeito = v.union(
   v.object({ tipo: v.literal('novo_tratamento_ncm'), ncmPrefixos: v.array(v.string()), tratamento: vTratamento, criterio: v.optional(v.string()) }),
   v.object({ tipo: v.literal('altera_reducao'), cClassTrib: v.string(), novaReducao: v.number() }),
+  v.object({
+    tipo: v.literal('atualiza_tabela'),
+    tratamentos: v.array(vTratamento),
+    codigosRemovidos: v.array(v.string()),
+    regras: v.array(v.object({ ncm: v.string(), codigos: v.array(v.string()), criterio: v.optional(v.string()) })),
+    ncmsRemovidos: v.array(v.string()),
+  }),
 );
 
 const vVersoes = v.object({ parametros: v.string(), tabela: v.string() });
@@ -233,6 +240,20 @@ export default defineSchema({
   })
     .index('by_escritorio', ['escritorioId'])
     .index('by_escritorio_ref', ['escritorioId', 'ref']),
+
+  /** Cada verificação do Agente Vigia (global: a fonte é pública e não tem dado de cliente). */
+  vigiaExecucoes: defineTable({
+    fonte: v.string(),
+    url: v.string(),
+    origem: v.union(v.literal('cron'), v.literal('manual'), v.literal('reprocessar')),
+    status: v.union(v.literal('sem_mudanca'), v.literal('mudou'), v.literal('erro')),
+    versao: v.optional(v.string()),
+    sha256: v.optional(v.string()), // dos dados extraídos da página
+    arquivoId: v.optional(v.id('_storage')), // dados extraídos, guardados para reprocessar
+    mudancasCriadas: v.number(),
+    erro: v.optional(v.string()),
+    em: v.number(),
+  }),
 
   /** Resultado do motor por cliente (cache reativo; a fonte da verdade são notas + revisões + versões). */
   analises: defineTable({

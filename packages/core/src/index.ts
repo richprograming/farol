@@ -9,5 +9,6 @@ export * from './classificar.ts';
 export * from './sugestor.ts';
 export * from './analise.ts';
 export * from './mudancas.ts';
+export * from './vigia.ts';
 export * from './aviso.ts';
 export * from './sinteticos.ts';

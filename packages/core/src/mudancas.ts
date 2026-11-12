@@ -6,11 +6,19 @@
 
 import { analisarCliente, CONTEXTO_PADRAO, type AnaliseCliente, type Cliente, type ContextoCalculo } from './analise.ts';
 import type { Revisoes } from './classificar.ts';
-import type { TabelaClassificacao, Tratamento } from './tabela.ts';
+import { todosTratamentos, type RegraClassificacao, type TabelaClassificacao, type Tratamento } from './tabela.ts';
 
 export type EfeitoMudanca =
   | { tipo: 'novo_tratamento_ncm'; ncmPrefixos: string[]; tratamento: Tratamento; criterio?: string }
-  | { tipo: 'altera_reducao'; cClassTrib: string; novaReducao: number };
+  | { tipo: 'altera_reducao'; cClassTrib: string; novaReducao: number }
+  /** Diferença entre duas versões da tabela (gerada por vigia.ts a partir da tabela oficial). */
+  | {
+    tipo: 'atualiza_tabela';
+    tratamentos: Tratamento[]; // códigos novos ou com conteúdo alterado
+    codigosRemovidos: string[];
+    regras: { ncm: string; codigos: string[]; criterio?: string }[]; // NCMs novos ou alterados (substituem a regra)
+    ncmsRemovidos: string[];
+  };
 
 export interface Mudanca {
   id: string;
@@ -32,6 +40,25 @@ export function aplicarMudanca(tabela: TabelaClassificacao, m: Mudanca): TabelaC
       regras: tabela.regras.map((r) => ({ ...r, tratamentos: r.tratamentos.map(ajustar) })),
       avulsos: tabela.avulsos.map(ajustar),
     };
+  }
+  if (e.tipo === 'atualiza_tabela') {
+    const tratamentos = todosTratamentos(tabela);
+    for (const c of e.codigosRemovidos) tratamentos.delete(c);
+    for (const t of e.tratamentos) tratamentos.set(t.cClassTrib, t);
+    const padrao = tratamentos.get(tabela.padrao.cClassTrib);
+    if (!padrao) throw new Error('A atualização remove o código de tributação integral: não dá para aplicar.');
+    const trocadas = new Set([...e.ncmsRemovidos, ...e.regras.map((r) => r.ncm)]);
+    const montar = (ncmPrefixo: string, codigos: string[], criterio?: string): RegraClassificacao | null => {
+      const ts = codigos.map((c) => tratamentos.get(c)).filter((t): t is Tratamento => t !== undefined);
+      if (ts.length === 0) return null;
+      return criterio === undefined ? { ncmPrefixo, tratamentos: ts } : { ncmPrefixo, tratamentos: ts, criterio };
+    };
+    const regras = [
+      ...tabela.regras.filter((r) => !trocadas.has(r.ncmPrefixo)).map((r) => montar(r.ncmPrefixo, r.tratamentos.map((t) => t.cClassTrib), r.criterio)),
+      ...e.regras.map((r) => montar(r.ncm, r.codigos, r.criterio)),
+    ].filter((r): r is RegraClassificacao => r !== null);
+    const usados = new Set([padrao.cClassTrib, ...regras.flatMap((r) => r.tratamentos.map((t) => t.cClassTrib))]);
+    return { padrao, regras, avulsos: [...tratamentos.values()].filter((t) => !usados.has(t.cClassTrib)) };
   }
   const semEsses = tabela.regras.filter((r) => !e.ncmPrefixos.includes(r.ncmPrefixo));
   const novas = e.ncmPrefixos.map((p) => ({ ncmPrefixo: p, tratamentos: [e.tratamento], criterio: e.criterio }));

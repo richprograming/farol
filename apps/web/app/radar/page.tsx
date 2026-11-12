@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { useState } from 'react';
 
 import { api } from '../../convex/_generated/api';
@@ -18,6 +18,7 @@ export default function Radar() {
             Mudanças normativas detectadas nas fontes oficiais. Confirme a leitura antes de calcular o impacto; nenhum aviso sai sem a sua aprovação.
           </p>
         </div>
+        <VerificarFonte />
       </div>
       {mudancas === undefined ? <p className="sub">Carregando…</p>
         : mudancas.length === 0 ? <div className="cartao vazio">Nenhuma mudança pendente.</div>
@@ -26,7 +27,34 @@ export default function Radar() {
   );
 }
 
-type Mudanca = Doc<'mudancas'> & { afetados: number | null; calculando: boolean };
+/** Quando o Agente Vigia olhou a tabela oficial pela última vez, e o botão para olhar agora. */
+function VerificarFonte() {
+  const status = useQuery(api.vigia.status);
+  const verificar = useAction(api.vigia.verificarAgora);
+  const [estado, setEstado] = useState('');
+  let texto = 'A tabela oficial de cClassTrib é verificada todo dia.';
+  if (status) {
+    const quando = new Date(status.em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    texto = status.status === 'erro' ? `Última verificação (${quando}) falhou: ${status.erro}`
+      : `Tabela oficial verificada em ${quando}: ${status.status === 'mudou' ? 'há diferença para conferir' : 'sem diferença'} (${status.versao}).`;
+  }
+  return (
+    <div className="vigia">
+      <button className="botao secundario" disabled={estado === 'rodando'} onClick={async () => {
+        setEstado('rodando');
+        try {
+          const r = await verificar({});
+          setEstado(r.status === 'erro' ? `Não deu para verificar: ${r.erro}` : '');
+        } catch (e) {
+          setEstado(mensagemDeErro(e));
+        }
+      }}>{estado === 'rodando' ? 'Verificando…' : 'Verificar agora'}</button>
+      <span className="citacao" role="status">{estado && estado !== 'rodando' ? estado : texto}</span>
+    </div>
+  );
+}
+
+type Mudanca = Omit<Doc<'mudancas'>, 'efeito'> & { afetados: number | null; calculando: boolean };
 
 function CartaoMudanca({ m }: { m: Mudanca }) {
   const confirmar = useMutation(api.radar.confirmar);
@@ -37,7 +65,7 @@ function CartaoMudanca({ m }: { m: Mudanca }) {
     <div className="cartao mudanca">
       <h2>{m.titulo}</h2>
       <div className="meta">
-        Publicada em {data(m.publicadaEm)}{m.vigenciaDesde ? ` · vigência ${data(m.vigenciaDesde)}` : ''} ·{' '}
+        {m.origem === 'vigia' && <><span className="pilula">Agente Vigia</span>{' '}</>}Publicada em {data(m.publicadaEm)}{m.vigenciaDesde ? ` · vigência ${data(m.vigenciaDesde)}` : ''} ·{' '}
         <a href={m.fonte} target="_blank" rel="noopener noreferrer">fonte</a>
       </div>
       <p className="sub">{m.resumo}</p>

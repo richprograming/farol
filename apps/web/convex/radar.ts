@@ -24,7 +24,8 @@ export const mudancas = query({
       .sort((a, b) => b.publicadaEm.localeCompare(a.publicadaEm));
     const clientes = await ctx.db.query('clientes').withIndex('by_escritorio', (q) => q.eq('escritorioId', escritorio._id)).collect();
     const analises = await ctx.db.query('analises').withIndex('by_escritorio', (q) => q.eq('escritorioId', escritorio._id)).collect();
-    return Promise.all(lista.map(async (m) => {
+    // O efeito (que pode ser a diferença inteira entre duas tabelas) fica no servidor: a tela usa título e resumo.
+    return Promise.all(lista.map(async ({ efeito: _e, ...m }) => {
       if (!m.confirmada) return { ...m, afetados: null, calculando: false };
       const impactos = await ctx.db.query('impactos').withIndex('by_mudanca', (q) => q.eq('mudancaId', m._id)).collect();
       // Ainda calculando enquanto algum cliente não foi recalculado depois da confirmação.
